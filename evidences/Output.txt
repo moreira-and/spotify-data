@@ -1,0 +1,690 @@
+artistas_frequentes:pyspark.sql.connect.dataframe.DataFrame
+df:pyspark.sql.connect.dataframe.DataFrame
+df_dates:pyspark.sql.connect.dataframe.DataFrame
+df_diff:pyspark.sql.connect.dataframe.DataFrame
+df_explicit:pyspark.sql.connect.dataframe.DataFrame = [id: string, name: string ... 17 more fields]
+df_formats:pyspark.sql.connect.dataframe.DataFrame = [id: string, name: string ... 18 more fields]
+df_genre:pyspark.sql.connect.dataframe.DataFrame
+df_love:pyspark.sql.connect.dataframe.DataFrame = [id: string, name: string ... 17 more fields]
+df_populares:pyspark.sql.connect.dataframe.DataFrame = [id: string, name: string ... 17 more fields]
+df_ranked:pyspark.sql.connect.dataframe.DataFrame
+df_recentes:pyspark.sql.connect.dataframe.DataFrame = [id: string, name: string ... 17 more fields]
+df_top_music:pyspark.sql.connect.dataframe.DataFrame
+df_top_year:pyspark.sql.connect.dataframe.DataFrame
+df_versatil:pyspark.sql.connect.dataframe.DataFrame
+df_year_stats:pyspark.sql.connect.dataframe.DataFrame
+evolucao:pyspark.sql.connect.dataframe.DataFrame
+✅ Spark versão: 4.1.0
+✅ Dataset carregado com 169,909 músicas
++-----------+------+
+|date_format| count|
++-----------+------+
+|    yyyy-MM|  1649|
+|       yyyy| 50382|
+|     M/d/yy|117878|
++-----------+------+
+
+📅 Datas inválidas após parsing: 0
+root
+ |-- id: string (nullable = true)
+ |-- name: string (nullable = true)
+ |-- artists: string (nullable = true)
+ |-- duration_ms: integer (nullable = true)
+ |-- release_date: date (nullable = true)
+ |-- year: integer (nullable = true)
+ |-- acousticness: double (nullable = true)
+ |-- danceability: double (nullable = true)
+ |-- energy: double (nullable = true)
+ |-- instrumentalness: double (nullable = true)
+ |-- liveness: double (nullable = true)
+ |-- loudness: double (nullable = true)
+ |-- speechiness: double (nullable = true)
+ |-- tempo: double (nullable = true)
+ |-- valence: double (nullable = true)
+ |-- mode: integer (nullable = true)
+ |-- key: integer (nullable = true)
+ |-- popularity: integer (nullable = true)
+ |-- explicit: integer (nullable = true)
+
++----------------------+----------------------------------------------+------------------------------------------+-----------+------------+----+------------+------------+------+----------------+--------+--------+-----------+-------+-------+----+---+----------+--------+
+|id                    |name                                          |artists                                   |duration_ms|release_date|year|acousticness|danceability|energy|instrumentalness|liveness|loudness|speechiness|tempo  |valence|mode|key|popularity|explicit|
++----------------------+----------------------------------------------+------------------------------------------+-----------+------------+----+------------+------------+------+----------------+--------+--------+-----------+-------+-------+----+---+----------+--------+
+|6KbQ3uYMLKb5jDxLF7wYDD|Singende Bataillone 1. Teil                   |['Carl Woitschach']                       |158648     |1928-01-01  |1928|0.995       |0.708       |0.195 |0.563           |0.151   |-12.428 |0.0506     |118.469|0.779  |1   |10 |0         |0       |
+|6KuQTIu1KoTTkLXKrwlLPV|Fantasiestücke, Op. 111: Più tosto lento      |['Robert Schumann', 'Vladimir Horowitz']  |282133     |1928-01-01  |1928|0.994       |0.379       |0.0135|0.901           |0.0763  |-28.454 |0.0462     |83.972 |0.0767 |1   |8  |0         |0       |
+|6L63VW0PibdM1HDSBoqnoM|Chapter 1.18 - Zamek kaniowski                |['Seweryn Goszczyński']                   |104300     |1928-01-01  |1928|0.604       |0.749       |0.22  |0.0             |0.119   |-19.924 |0.929      |107.177|0.88   |0   |5  |0         |0       |
+|6M94FkXd15sOAOQYRnWPN8|Bebamos Juntos - Instrumental (Remasterizado) |['Francisco Canaro']                      |180760     |2028-09-25  |1928|0.995       |0.781       |0.13  |0.887           |0.111   |-14.734 |0.0926     |108.003|0.72   |0   |1  |0         |0       |
+|6N6tiFZ9vLTSOIxkj8qKrd|Polonaise-Fantaisie in A-Flat Major, Op. 61   |['Frédéric Chopin', 'Vladimir Horowitz']  |687733     |1928-01-01  |1928|0.99        |0.21        |0.204 |0.908           |0.098   |-16.829 |0.0424     |62.149 |0.0693 |1   |11 |1         |0       |
+|6NxAf7M8DNHOBTmEd3JSO5|Scherzo a capriccio: Presto                   |['Felix Mendelssohn', 'Vladimir Horowitz']|352600     |1928-01-01  |1928|0.995       |0.424       |0.12  |0.911           |0.0915  |-19.242 |0.0593     |63.521 |0.266  |0   |6  |0         |0       |
+|6O0puPuyrxPjDTHDUgsWI7|Valse oubliée No. 1 in F-Sharp Major, S. 215/1|['Franz Liszt', 'Vladimir Horowitz']      |136627     |1928-01-01  |1928|0.956       |0.444       |0.197 |0.435           |0.0744  |-17.226 |0.04       |80.495 |0.305  |1   |11 |0         |0       |
+|6OJjveoYwJdIt76y0Pxpxw|Per aspera ad astra                           |['Carl Woitschach']                       |153967     |1928-01-01  |1928|0.988       |0.555       |0.421 |0.836           |0.105   |-9.878  |0.0474     |123.31 |0.857  |1   |1  |0         |0       |
+|6OaJ8Bh7lsBeYoBmwmo2nh|Moneda Corriente - Remasterizado              |['Francisco Canaro', 'Charlo']            |162493     |2028-10-03  |1928|0.995       |0.683       |0.207 |0.206           |0.337   |-9.801  |0.127      |119.833|0.493  |0   |9  |0         |0       |
+|6PrZexNb16cabXR8Q418Xc|Chapter 1.3 - Zamek kaniowski                 |['Seweryn Goszczyński']                   |111600     |1928-01-01  |1928|0.846       |0.674       |0.205 |0.0             |0.17    |-20.119 |0.954      |81.249 |0.759  |1   |9  |0         |0       |
++----------------------+----------------------------------------------+------------------------------------------+-----------+------------+----+------------+------------+------+----------------+--------+--------+-----------+-------+-------+----+---+----------+--------+
+only showing top 10 rows
+📊 Número de linhas: 169,909
+📊 Número de colunas: 19
+📋 Colunas:
+    1. id
+    2. name
+    3. artists
+    4. duration_ms
+    5. release_date
+    6. year
+    7. acousticness
+    8. danceability
+    9. energy
+   10. instrumentalness
+   11. liveness
+   12. loudness
+   13. speechiness
+   14. tempo
+   15. valence
+   16. mode
+   17. key
+   18. popularity
+   19. explicit
+🎵 Músicas únicas: 169,909
+🎤 Artistas únicos: 33,375
++-----------+---------+
+|Ano_Inicial|Ano_Final|
++-----------+---------+
+|       1921|     2020|
++-----------+---------+
+
++-------+--------------------+----------------------------+--------------------+------------------+------------------+------------------+-------------------+------------------+------------------+-------------------+-------------------+-------------------+-----------------+-------------------+-------------------+-----------------+-----------------+-------------------+
+|summary|                  id|                        name|             artists|       duration_ms|              year|      acousticness|       danceability|            energy|  instrumentalness|           liveness|           loudness|        speechiness|            tempo|            valence|               mode|              key|       popularity|           explicit|
++-------+--------------------+----------------------------+--------------------+------------------+------------------+------------------+-------------------+------------------+------------------+-------------------+-------------------+-------------------+-----------------+-------------------+-------------------+-----------------+-----------------+-------------------+
+|  count|              169909|                      169909|              169909|            169909|            169909|            169909|             169909|            169909|            169909|             169909|             169909|             169909|           169909|             169909|             169909|           169909|           169909|             169909|
+|   mean|                NULL|                    Infinity|                NULL| 231406.1589733328|1977.2232312590857|0.4932139761498824| 0.5381497172015446|0.4885931303603691|0.1619371431389088|0.20669034936348216|-11.370289301920343|0.09405769441289134|116.9480173740055| 0.5320951423473804| 0.7085557563166165|5.200519101401339|31.55660971461194|0.08486307376301432|
+| stddev|                NULL|                         NaN|                NULL|121321.92321940258| 25.59316763176332|0.3766270623378336|0.17534578204760826| 0.267389932957134|0.3093288820383724| 0.1767964903942967|  5.666764629571749|0.14993730259926885|  30.726936654887|0.26240763092035846|0.45442899544073656|3.515256798424859|21.58261380855794| 0.2786786492597437|
+|    min|000G1xMMuwxNHmwVs...|        !Que Vida! - Mono...|["'In The Heights...|              5108|              1921|               0.0|                0.0|               0.0|               0.0|                0.0|              -60.0|                0.0|              0.0|                0.0|                  0|                0|                0|                  0|
+|    max|7zzuPsjj9L3M7ikqG...|화려하지 않은 고백 Confes...|            ['黑豹']|           5403500|              2020|             0.996|              0.988|               1.0|               1.0|                1.0|              3.855|              0.969|          244.091|                1.0|                  1|               11|              100|                  1|
++-------+--------------------+----------------------------+--------------------+------------------+------------------+------------------+-------------------+------------------+------------------+-------------------+-------------------+-------------------+-----------------+-------------------+-------------------+-----------------+-----------------+-------------------+
+
++--------------------+--------------------+----+----------+
+|                name|             artists|year|popularity|
++--------------------+--------------------+----+----------+
+|Singende Bataillo...| ['Carl Woitschach']|1928|         0|
+|Fantasiestücke, O...|['Robert Schumann...|1928|         0|
+|Chapter 1.18 - Za...|['Seweryn Goszczy...|1928|         0|
+|Bebamos Juntos - ...|['Francisco Canaro']|1928|         0|
+|Polonaise-Fantais...|['Frédéric Chopin...|1928|         1|
+|Scherzo a capricc...|['Felix Mendelsso...|1928|         0|
+|Valse oubliée No....|['Franz Liszt', '...|1928|         0|
+| Per aspera ad astra| ['Carl Woitschach']|1928|         0|
+|Moneda Corriente ...|['Francisco Canar...|1928|         0|
+|Chapter 1.3 - Zam...|['Seweryn Goszczy...|1928|         0|
++--------------------+--------------------+----+----------+
+only showing top 10 rows
+🌟 Músicas com popularity > 80: 457
++--------------------+--------------------+----------+
+|                name|             artists|popularity|
++--------------------+--------------------+----------+
+|     Blinding Lights|      ['The Weeknd']|       100|
+|ROCKSTAR (feat. R...|['DaBaby', 'Roddy...|        99|
+|death bed (coffee...|['Powfu', 'beabad...|        97|
+|          THE SCOTTS|['THE SCOTTS', 'T...|        96|
+|             The Box|     ['Roddy Ricch']|        95|
+|        Toosie Slide|           ['Drake']|        95|
+|          Supalonely|['BENEE', 'Gus Da...|        95|
+|ily (i love you b...|['Surf Mesa', 'Em...|        95|
+|          Party Girl|  ['StaySolidRocky']|        94|
+|        Dance Monkey|     ['Tones And I']|        94|
++--------------------+--------------------+----------+
+only showing top 10 rows
+📅 Músicas de 2020+: 1,756
+🔞 Músicas explícitas: 14,419
+📊 Porcentagem: 8.5%
+❤️ Músicas com 'love' no nome: 6,809
++--------------------+--------------------+----+
+|                name|             artists|year|
++--------------------+--------------------+----+
+|It Was a Lover an...|['Roger Quilter',...|1928|
+|Indian Love Call ...|['Jeanette MacDon...|1936|
+|    Indian Love Call|['Jeanette MacDon...|1936|
+|Wake up and Dream...|['Victor Arden', ...|1940|
+|Don't Take Your L...|['Doris Day', 'Pa...|1948|
+|People Will Say W...|['Jay Blackton', ...|1949|
+|Girl Crazy: Boy! ...|['George Gershwin...|1949|
+|And This is My Be...|['Robert Wright',...|1950|
+|      Beautiful Love|['Percy Faith & H...|1950|
+|When I'm Not Near...|['Percy Faith & H...|1951|
++--------------------+--------------------+----+
+only showing top 10 rows
++--------------------+-----------+------------+
+|                name|duration_ms|duration_min|
++--------------------+-----------+------------+
+|Singende Bataillo...|     158648|        2.64|
+|Fantasiestücke, O...|     282133|         4.7|
+|Chapter 1.18 - Za...|     104300|        1.74|
+|Bebamos Juntos - ...|     180760|        3.01|
+|Polonaise-Fantais...|     687733|       11.46|
++--------------------+-----------+------------+
+only showing top 5 rows
++--------------------+----+------+
+|                name|year|decade|
++--------------------+----+------+
+|Singende Bataillo...|1928|  1920|
+|Fantasiestücke, O...|1928|  1920|
+|Chapter 1.18 - Za...|1928|  1920|
+|Bebamos Juntos - ...|1928|  1920|
+|Polonaise-Fantais...|1928|  1920|
+|Scherzo a capricc...|1928|  1920|
+|Valse oubliée No....|1928|  1920|
+| Per aspera ad astra|1928|  1920|
+|Moneda Corriente ...|1928|  1920|
+|Chapter 1.3 - Zam...|1928|  1920|
++--------------------+----+------+
+only showing top 10 rows
++------------+-----+
+|energy_level|count|
++------------+-----+
+|        High|44271|
+|      Medium|56312|
+|         Low|69326|
++------------+-----+
+
++-------+-----+
+|   mood|count|
++-------+-----+
+|  Happy|73349|
+|Neutral|57875|
+|    Sad|38685|
++-------+-----+
+
++--------------------+------+------------+-------+-------+
+|                name|energy|energy_level|valence|   mood|
++--------------------+------+------------+-------+-------+
+|Singende Bataillo...| 0.195|         Low|  0.779|  Happy|
+|Fantasiestücke, O...|0.0135|         Low| 0.0767|    Sad|
+|Chapter 1.18 - Za...|  0.22|         Low|   0.88|  Happy|
+|Bebamos Juntos - ...|  0.13|         Low|   0.72|  Happy|
+|Polonaise-Fantais...| 0.204|         Low| 0.0693|    Sad|
+|Scherzo a capricc...|  0.12|         Low|  0.266|    Sad|
+|Valse oubliée No....| 0.197|         Low|  0.305|Neutral|
+| Per aspera ad astra| 0.421|      Medium|  0.857|  Happy|
+|Moneda Corriente ...| 0.207|         Low|  0.493|Neutral|
+|Chapter 1.3 - Zam...| 0.205|         Low|  0.759|  Happy|
++--------------------+------+------------+-------+-------+
+only showing top 10 rows
++------+------------------+-----------+
+|decade|    avg_popularity|num_musicas|
++------+------------------+-----------+
+|  1920|1.3281601439496176|       4446|
+|  1930| 2.513556080548993|       8889|
+|  1940|1.6452431854623195|      14968|
+|  1950| 9.947067669172933|      19950|
+|  1960|          25.62915|      20000|
+|  1970|           35.0491|      20000|
+|  1980|          37.00115|      20000|
+|  1990|           43.6275|      20000|
+|  2000|          49.40865|      20000|
+|  2010|59.562814070351756|      19900|
+|  2020| 63.11104783599089|       1756|
++------+------------------+-----------+
+
++--------------------+-----+
+|             artists|count|
++--------------------+-----+
+|['Эрнест Хемингуэй']| 1215|
+|['Francisco Canaro']|  938|
+|['Эрих Мария Рема...|  781|
+| ['Ignacio Corsini']|  620|
+|   ['Frank Sinatra']|  592|
+|       ['Bob Dylan']|  539|
+|['The Rolling Sto...|  512|
+|     ['Johnny Cash']|  502|
+|  ['The Beach Boys']|  491|
+|   ['Elvis Presley']|  488|
++--------------------+-----+
+only showing top 10 rows
++------+----------------+----------+----------------+-----------+---------+
+|decade|avg_danceability|avg_energy|avg_acousticness|avg_valence|avg_tempo|
++------+----------------+----------+----------------+-----------+---------+
+|  1920|           0.577|     0.241|           0.831|      0.567|    110.2|
+|  1930|           0.536|     0.288|           0.875|      0.576|    112.0|
+|  1940|           0.472|     0.253|           0.871|      0.485|    107.3|
+|  1950|           0.477|     0.287|            0.84|      0.477|    110.6|
+|  1960|           0.497|     0.416|           0.621|      0.557|    115.5|
+|  1970|           0.527|     0.539|           0.392|      0.588|    120.1|
+|  1980|            0.55|     0.602|           0.286|       0.57|    121.5|
+|  1990|           0.572|     0.595|           0.292|       0.55|    119.3|
+|  2000|           0.576|     0.659|           0.259|      0.533|    121.4|
+|  2010|           0.599|     0.633|           0.256|      0.462|    120.8|
+|  2020|           0.673|     0.612|           0.247|      0.483|    121.2|
++------+----------------+----------+----------------+-----------+---------+
+
++------+---------+
+|decade|avg_tempo|
++------+---------+
+|  1980|   121.49|
++------+---------+
+only showing top 1 row
++----+------+-----------+-----------+-----------+---------+
+|mode| count|avg_valence|min_valence|max_valence|mode_name|
++----+------+-----------+-----------+-----------+---------+
+|   0| 49519|      0.526|        0.0|        1.0|    Minor|
+|   1|120390|      0.535|        0.0|        1.0|    Major|
++----+------+-----------+-----------+-----------+---------+
+
++----------------------------------------------------+------------------------------------------+----+----------+
+|name                                                |artists                                   |year|popularity|
++----------------------------------------------------+------------------------------------------+----+----------+
+|Blinding Lights                                     |['The Weeknd']                            |2020|100       |
+|ROCKSTAR (feat. Roddy Ricch)                        |['DaBaby', 'Roddy Ricch']                 |2020|99        |
+|death bed (coffee for your head) (feat. beabadoobee)|['Powfu', 'beabadoobee']                  |2020|97        |
+|THE SCOTTS                                          |['THE SCOTTS', 'Travis Scott', 'Kid Cudi']|2020|96        |
+|Toosie Slide                                        |['Drake']                                 |2020|95        |
+|The Box                                             |['Roddy Ricch']                           |2019|95        |
+|ily (i love you baby) (feat. Emilee)                |['Surf Mesa', 'Emilee']                   |2019|95        |
+|Supalonely                                          |['BENEE', 'Gus Dapperton']                |2019|95        |
+|Dance Monkey                                        |['Tones And I']                           |2019|94        |
+|Rain On Me (with Ariana Grande)                     |['Lady Gaga', 'Ariana Grande']            |2020|94        |
+|Stuck with U (with Justin Bieber)                   |['Ariana Grande', 'Justin Bieber']        |2020|94        |
+|Party Girl                                          |['StaySolidRocky']                        |2020|94        |
+|GOOBA                                               |['6ix9ine']                               |2020|94        |
+|Sunday Best                                         |['Surfaces']                              |2019|93        |
+|Don't Start Now                                     |['Dua Lipa']                              |2019|93        |
+|Say So                                              |['Doja Cat']                              |2019|93        |
+|Falling                                             |['Trevor Daniel']                         |2018|92        |
+|Someone You Loved                                   |['Lewis Capaldi']                         |2019|92        |
+|goosebumps                                          |['Travis Scott']                          |2016|92        |
+|ROXANNE                                             |['Arizona Zervas']                        |2019|92        |
++----------------------------------------------------+------------------------------------------+----+----------+
+
++--------------------+--------------------+----------+
+|                name|             artists|popularity|
++--------------------+--------------------+----------+
+|     Blinding Lights|      ['The Weeknd']|       100|
+|ROCKSTAR (feat. R...|['DaBaby', 'Roddy...|        99|
+|death bed (coffee...|['Powfu', 'beabad...|        97|
+|          THE SCOTTS|['THE SCOTTS', 'T...|        96|
+|        Toosie Slide|           ['Drake']|        95|
+|             The Box|     ['Roddy Ricch']|        95|
+|ily (i love you b...|['Surf Mesa', 'Em...|        95|
+|          Supalonely|['BENEE', 'Gus Da...|        95|
+|        Dance Monkey|     ['Tones And I']|        94|
+|Rain On Me (with ...|['Lady Gaga', 'Ar...|        94|
+|Stuck with U (wit...|['Ariana Grande',...|        94|
+|          Party Girl|  ['StaySolidRocky']|        94|
+|               GOOBA|         ['6ix9ine']|        94|
+|         Sunday Best|        ['Surfaces']|        93|
+|     Don't Start Now|        ['Dua Lipa']|        93|
+|              Say So|        ['Doja Cat']|        93|
+|             Falling|   ['Trevor Daniel']|        92|
+|   Someone You Loved|   ['Lewis Capaldi']|        92|
+|          goosebumps|    ['Travis Scott']|        92|
+|             ROXANNE|  ['Arizona Zervas']|        92|
++--------------------+--------------------+----------+
+
++--------------------+--------------------+-------+---------------+
+|                name|             artists|  tempo|tempo_categoria|
++--------------------+--------------------+-------+---------------+
+|            Mama Cry|       ['YNW Melly']|220.099|   Muito Rápido|
+|          Bubble Gum|          ['Clairo']| 207.97|   Muito Rápido|
+|               Moana|['G-Eazy', 'Jack ...|205.895|   Muito Rápido|
+|     FourFiveSeconds|['Rihanna', 'Kany...|205.846|   Muito Rápido|
+|Lover (Remix) [fe...|['Taylor Swift', ...|205.272|   Muito Rápido|
+|             Love Me|       ['Lil Tecca']|204.132|   Muito Rápido|
+|         Do The Most|      ['Tory Lanez']|204.113|   Muito Rápido|
+|BIG BANK (feat. 2...|['YG', '2 Chainz'...|203.911|   Muito Rápido|
+|    Heart-Shaped Box|         ['Nirvana']|203.006|   Muito Rápido|
+|Pure Water (with ...|['Mustard', 'Migos']|202.015|   Muito Rápido|
+|                  Ye|       ['Burna Boy']| 201.85|   Muito Rápido|
+|           The Motto|['Drake', 'Lil Wa...|  201.8|   Muito Rápido|
+|      Singles You Up|    ['Jordan Davis']|199.943|   Muito Rápido|
+|              Heaven|  ['Julia Michaels']|199.843|   Muito Rápido|
+|              Simple|['Florida Georgia...|199.811|   Muito Rápido|
+|Better Luck Next ...|['Kelsea Ballerini']|198.522|   Muito Rápido|
+|Corazón (feat. Ne...|['Maluma', 'Nego ...|198.075|   Muito Rápido|
+|     I Want You Back|   ['The Jackson 5']|196.605|   Muito Rápido|
+|             Fat Lip|          ['Sum 41']|196.505|   Muito Rápido|
+|RNP (feat. Anders...|['YBN Cordae', 'A...|196.043|   Muito Rápido|
++--------------------+--------------------+-------+---------------+
+
++------+-------------+--------------+----------------+----------+
+|decade|total_musicas|avg_popularity|avg_danceability|avg_energy|
++------+-------------+--------------+----------------+----------+
+|  1920|         4446|          1.33|           0.577|     0.241|
+|  1930|         8889|          2.51|           0.536|     0.288|
+|  1940|        14968|          1.65|           0.472|     0.253|
+|  1950|        19950|          9.95|           0.477|     0.287|
+|  1960|        20000|         25.63|           0.497|     0.416|
+|  1970|        20000|         35.05|           0.527|     0.539|
+|  1980|        20000|          37.0|            0.55|     0.602|
+|  1990|        20000|         43.63|           0.572|     0.595|
+|  2000|        20000|         49.41|           0.576|     0.659|
+|  2010|        19900|         59.56|           0.599|     0.633|
+|  2020|         1756|         63.11|           0.673|     0.612|
++------+-------------+--------------+----------------+----------+
+
++----------------------+----------------------------------------------------------------------------+----------+--------------+
+|artists               |name                                                                        |popularity|rank_by_artist|
++----------------------+----------------------------------------------------------------------------+----------+--------------+
+|['Bob Dylan']         |Knockin' On Heaven's Door                                                   |74        |1             |
+|['Bob Dylan']         |Like a Rolling Stone                                                        |72        |2             |
+|['Bob Dylan']         |Blowin' in the Wind                                                         |70        |3             |
+|['Elvis Presley']     |Can't Help Falling in Love                                                  |78        |1             |
+|['Elvis Presley']     |Jailhouse Rock                                                              |73        |2             |
+|['Elvis Presley']     |Suspicious Minds                                                            |72        |3             |
+|['Francisco Canaro']  |Soñar y Nada Mas - Remasterizado                                            |21        |1             |
+|['Francisco Canaro']  |Cacareando - Instrumental (Remasterizado)                                   |3         |2             |
+|['Francisco Canaro']  |Mersa Burrera - Instrumental (Remasterizado)                                |2         |3             |
+|['Frank Sinatra']     |That's Life                                                                 |72        |1             |
+|['Frank Sinatra']     |My Way                                                                      |72        |2             |
+|['Frank Sinatra']     |Come Fly With Me - Remastered                                               |69        |3             |
+|['Ignacio Corsini']   |Griseta - Remasterizado                                                     |5         |1             |
+|['Ignacio Corsini']   |Los Jazmines de San Ignacio - Remasterizado                                 |3         |2             |
+|['Ignacio Corsini']   |Besos de Plata - Remastered                                                 |2         |3             |
+|['Johnny Cash']       |Hurt                                                                        |75        |1             |
+|['Johnny Cash']       |Folsom Prison Blues - Live at Folsom State Prison, Folsom, CA - January 1968|70        |2             |
+|['Johnny Cash']       |Ring of Fire                                                                |69        |3             |
+|['The Beach Boys']    |Surfin' U.S.A. - Remastered                                                 |73        |1             |
+|['The Beach Boys']    |Wouldn't It Be Nice - Stereo Mix                                            |73        |2             |
+|['The Beach Boys']    |Kokomo                                                                      |73        |3             |
+|['The Rolling Stones']|Paint It, Black                                                             |78        |1             |
+|['The Rolling Stones']|Start Me Up - Remastered                                                    |77        |2             |
+|['The Rolling Stones']|(I Can't Get No) Satisfaction - Mono Version                                |76        |3             |
+|['Эрих Мария Ремарк'] |Часть 105.2 - Триумфальная арка                                             |0         |1             |
+|['Эрих Мария Ремарк'] |Часть 220.2 - Триумфальная арка                                             |0         |2             |
+|['Эрих Мария Ремарк'] |Часть 55.3 & Часть 56.1 - Триумфальная арка                                 |0         |3             |
+|['Эрнест Хемингуэй']  |Часть 58.3 & Часть 59.1 - Зеленые холмы Африки                              |0         |1             |
+|['Эрнест Хемингуэй']  |Часть 2.3 & Часть 3.1 - Зеленые холмы Африки                                |0         |2             |
+|['Эрнест Хемингуэй']  |Часть 26.4 & Часть 27.1 - Зеленые холмы Африки                              |0         |3             |
++----------------------+----------------------------------------------------------------------------+----------+--------------+
+
++----+--------------------+--------------------+----------+
+|year|                name|             artists|popularity|
++----+--------------------+--------------------+----------+
+|1921|Clancy Lowered th...|      ['Dennis Day']|         7|
+|1922|               Carve|             ['Uli']|        10|
+|1923|Nobody Knows You ...|    ['Bessie Smith']|        44|
+|1924|Mississippi Mud (...|['Paul Whiteman &...|        13|
+|1925|On the Sunny Side...|    ['Tommy Dorsey']|        37|
+|1926|   Ain't Misbehavin'|     ['Fats Waller']|        45|
+|1927|   Singin' The Blues| ['Bix Beiderbecke']|        39|
+|1928|    Sing, Sing, Sing|   ['Benny Goodman']|        50|
+|1929|      Mack the Knife| ['Louis Armstrong']|        50|
+|1930|Hungarian Rhapsod...|['Franz Liszt', '...|        47|
+|1931|       La Chambelona|['Sexteto Habanero']|        18|
+|1932|Brother, Can You ...|['Bing Crosby', '...|        34|
+|1933|All of Me (with E...|['Billie Holiday'...|        62|
+|1934|Doin' The Uptown ...|['Richard Himber ...|        34|
+|1935|      Cheek to Cheek|    ['Fred Astaire']|        46|
+|1936|The Way You Look ...|['Billie Holiday'...|        47|
+|1937|    Cross Road Blues|  ['Robert Johnson']|        54|
+|1938|   Wabash Cannonball|       ['Roy Acuff']|        40|
+|1939|It's Been a Long,...|     ['Harry James']|        57|
+|1940|Main Title - Gone...|     ['Max Steiner']|        35|
+|1941|On the Sunny Side...|       ['Peggy Lee']|        41|
+|1942|     White Christmas|['Bing Crosby', '...|        48|
+|1943|Someone to Watch ...|   ['Frank Sinatra']|        54|
+|1944|Nancy (With the L...|   ['Frank Sinatra']|        55|
+|1945|Again (with The M...|['Doris Day', 'Th...|        57|
+|1946|             Manteca| ['Dizzy Gillespie']|        39|
+|1947|I Can't Quit You ...|    ['Willie Dixon']|        50|
+|1948|Whatever Will Be,...|['Doris Day', 'Fr...|        63|
+|1949|    Gymnopédie No. 1|['Erik Satie', 'P...|        65|
+|1950|Someone To Watch ...| ['Ella Fitzgerald']|        52|
+|1951|     'Round Midnight| ['Thelonious Monk']|        56|
+|1952| Singin' In The Rain|      ['Gene Kelly']|        52|
+|1953|      Claire de lune|['Claude Debussy'...|        57|
+|1954|       Unforgettable|   ['Nat King Cole']|        64|
+|1955|I'm In The Mood F...|    ['Julie London']|        61|
+|1956|I've Got You Unde...|   ['Frank Sinatra']|        67|
+|1957|Dream A Little Dr...|['Ella Fitzgerald...|        71|
+|1958|      Jailhouse Rock|   ['Elvis Presley']|        73|
+|1959|     Johnny B. Goode|     ['Chuck Berry']|        74|
+|1960|             At Last|      ['Etta James']|        74|
+|1961|Can't Help Fallin...|   ['Elvis Presley']|        78|
+|1962|         Stand by Me|     ['Ben E. King']|        78|
+|1963|Twist And Shout -...|     ['The Beatles']|        74|
+|1964|The Sound of Sile...|['Simon & Garfunk...|        74|
+|1965|             My Girl| ['The Temptations']|        79|
+|1966|     Paint It, Black|['The Rolling Sto...|        78|
+|1967|     Brown Eyed Girl|    ['Van Morrison']|        80|
+|1968|All Along the Wat...|    ['Jimi Hendrix']|        77|
+|1969|Here Comes The Su...|     ['The Beatles']|        83|
+|1970|Let It Be - Remas...|     ['The Beatles']|        78|
++----+--------------------+--------------------+----------+
+only showing top 50 rows
++--------------------+--------------------+----------+--------------+-------------+
+|                name|             artists|popularity|artist_avg_pop|diff_from_avg|
++--------------------+--------------------+----------+--------------+-------------+
+|All of Me (with E...|['Billie Holiday'...|        62|          9.96|        52.04|
+|What A Wonderful ...| ['Louis Armstrong']|        67|         16.49|        50.51|
+|         Stand by Me|     ['Ben E. King']|        78|         27.78|        50.22|
+|          Be Alright|      ['Dean Lewis']|        82|         32.19|        49.81|
+|I Got You (I Feel...|['James Brown & T...|        70|         21.04|        48.96|
+|                Hurt|     ['Johnny Cash']|        75|         26.11|        48.89|
+|             My Girl| ['The Temptations']|        79|         30.39|        48.61|
+|La vie en rose - ...| ['Louis Armstrong']|        64|         16.49|        47.51|
+|      Se telefonando|            ['Mina']|        54|          6.59|        47.41|
+|MALAMENTE - Cap.1...|         ['ROSALÍA']|        71|         23.67|        47.33|
+|        Baba O'Riley|         ['The Who']|        77|         29.88|        47.12|
+|Where Did You Sle...|      ['Lead Belly']|        50|          2.91|        47.09|
+|Whatever Will Be,...|['Doris Day', 'Fr...|        63|          16.0|         47.0|
+|Parole parole - 2...|            ['Mina']|        53|          6.59|        46.41|
+|  I'll Be Seeing You|  ['Billie Holiday']|        63|         16.88|        46.12|
+|              My Way|   ['Frank Sinatra']|        72|         25.89|        46.11|
+|         That's Life|   ['Frank Sinatra']|        72|         25.89|        46.11|
+|I'm a Believer - ...|     ['The Monkees']|        73|         27.01|        45.99|
+|               Waves|      ['Dean Lewis']|        78|         32.19|        45.81|
+|    Gymnopédie No. 1|['Erik Satie', 'P...|        65|         19.26|        45.74|
++--------------------+--------------------+----------+--------------+-------------+
+only showing top 20 rows
+/databricks/python/lib/python3.12/site-packages/pyspark/sql/connect/expressions.py:1134: UserWarning: WARN WindowExpression: No Partition Defined for Window operation! Moving all data to a single partition, this can cause serious performance degradation.
+  warnings.warn(
++----+--------------+--------------+
+|year|avg_popularity|rolling_avg_3y|
++----+--------------+--------------+
+|1921|          0.35|          0.35|
+|1922|          0.14|          0.25|
+|1923|          5.73|          2.07|
+|1924|           0.6|          2.16|
+|1925|          2.71|          3.01|
+|1926|          1.61|          1.64|
+|1927|          0.83|          1.72|
+|1928|          1.54|          1.33|
+|1929|          0.33|           0.9|
+|1930|          0.87|          0.91|
+|1931|          0.21|          0.47|
+|1932|          1.54|          0.87|
+|1933|          7.07|          2.94|
+|1934|          1.05|          3.22|
+|1935|          1.36|          3.16|
+|1936|          5.01|          2.47|
+|1937|          3.55|          3.31|
+|1938|          2.03|          3.53|
+|1939|          4.22|          3.27|
+|1940|          0.83|          2.36|
+|1941|          1.24|           2.1|
+|1942|          0.95|          1.01|
+|1943|          1.18|          1.12|
+|1944|          2.68|           1.6|
+|1945|          1.76|          1.87|
+|1946|          1.65|          2.03|
+|1947|          1.16|          1.52|
+|1948|          1.58|          1.46|
+|1949|          3.31|          2.02|
+|1950|           2.7|          2.53|
+|1951|           2.8|          2.94|
+|1952|          2.99|          2.83|
+|1953|          3.18|          2.99|
+|1954|          7.08|          4.42|
+|1955|          8.87|          6.38|
+|1956|          15.1|         10.35|
+|1957|         18.61|         14.19|
+|1958|         18.16|         17.29|
+|1959|         19.81|         18.86|
+|1960|         18.48|         18.82|
+|1961|         18.23|         18.84|
+|1962|         20.34|         19.02|
+|1963|         24.37|         20.98|
+|1964|         25.15|         23.29|
+|1965|         26.67|          25.4|
+|1966|         28.06|         26.63|
+|1967|         31.21|         28.65|
+|1968|         30.92|         30.06|
+|1969|         32.87|         31.67|
+|1970|         34.44|         32.74|
++----+--------------+--------------+
+only showing top 50 rows
++----------------+-----+--------------+
+|  genre_estimate|count|avg_popularity|
++----------------+-----+--------------+
+|           Other|58375|         36.35|
+|     Ballad/Soft|39285|         20.36|
+|        Rock/Pop|33433|         46.21|
+|   Acoustic/Folk|21000|         12.66|
+|     Hip-Hop/Rap| 9059|         22.89|
+|Dance/Electronic| 8757|          48.2|
++----------------+-----+--------------+
+
++------+----------------+-----+
+|decade|  genre_estimate|count|
++------+----------------+-----+
+|  1920|   Acoustic/Folk| 1958|
+|  1920|     Ballad/Soft| 1399|
+|  1920|     Hip-Hop/Rap|  844|
+|  1920|           Other|  190|
+|  1920|        Rock/Pop|   41|
+|  1920|Dance/Electronic|   14|
+|  1930|     Ballad/Soft| 3866|
+|  1930|   Acoustic/Folk| 2543|
+|  1930|           Other| 1164|
+|  1930|     Hip-Hop/Rap| 1136|
+|  1930|        Rock/Pop|  152|
+|  1930|Dance/Electronic|   28|
+|  1940|     Ballad/Soft| 5659|
+|  1940|   Acoustic/Folk| 5589|
+|  1940|           Other| 1801|
+|  1940|     Hip-Hop/Rap| 1687|
+|  1940|        Rock/Pop|  201|
+|  1940|Dance/Electronic|   31|
+|  1950|     Ballad/Soft| 9590|
+|  1950|   Acoustic/Folk| 4764|
+|  1950|           Other| 3734|
+|  1950|     Hip-Hop/Rap| 1201|
+|  1950|        Rock/Pop|  550|
+|  1950|Dance/Electronic|  111|
+|  1960|           Other| 8364|
+|  1960|     Ballad/Soft| 6957|
+|  1960|   Acoustic/Folk| 2225|
+|  1960|        Rock/Pop| 1887|
+|  1960|     Hip-Hop/Rap|  351|
+|  1960|Dance/Electronic|  216|
+|  1970|           Other|11483|
+|  1970|     Ballad/Soft| 3675|
+|  1970|        Rock/Pop| 3174|
+|  1970|   Acoustic/Folk|  731|
+|  1970|Dance/Electronic|  638|
+|  1970|     Hip-Hop/Rap|  299|
+|  1980|           Other|10565|
+|  1980|        Rock/Pop| 4444|
+|  1980|     Ballad/Soft| 2389|
+|  1980|Dance/Electronic| 1375|
+|  1980|   Acoustic/Folk|  937|
+|  1980|     Hip-Hop/Rap|  290|
+|  1990|           Other| 9101|
+|  1990|        Rock/Pop| 5045|
+|  1990|     Ballad/Soft| 2463|
+|  1990|Dance/Electronic| 1771|
+|  1990|     Hip-Hop/Rap|  838|
+|  1990|   Acoustic/Folk|  782|
+|  2000|        Rock/Pop| 8875|
+|  2000|           Other| 5590|
++------+----------------+-----+
+only showing top 50 rows
+📊 Percentil 90 de popularidade: 59.0
+
+🧬 DNA da Música Popular (Top 10%):
++------------+------+------------+-------+-----+--------+-----------+
+|danceability|energy|acousticness|valence|tempo|loudness|speechiness|
++------------+------+------------+-------+-----+--------+-----------+
+|       0.615| 0.622|       0.262|  0.502|120.5|   -7.73|      0.097|
++------------+------+------------+-------+-----+--------+-----------+
+
+
+📈 Evolução Musical por Década:
++------+------+------------+------------+-------+-----+
+|decade|energy|danceability|acousticness|valence|tempo|
++------+------+------------+------------+-------+-----+
+|  1920| 0.241|       0.577|       0.831|  0.567|110.2|
+|  1930| 0.288|       0.536|       0.875|  0.576|112.0|
+|  1940| 0.253|       0.472|       0.871|  0.485|107.3|
+|  1950| 0.287|       0.477|        0.84|  0.477|110.6|
+|  1960| 0.416|       0.497|       0.621|  0.557|115.5|
+|  1970| 0.539|       0.527|       0.392|  0.588|120.1|
+|  1980| 0.602|        0.55|       0.286|   0.57|121.5|
+|  1990| 0.595|       0.572|       0.292|   0.55|119.3|
+|  2000| 0.659|       0.576|       0.259|  0.533|121.4|
+|  2010| 0.633|       0.599|       0.256|  0.462|120.8|
+|  2020| 0.612|       0.673|       0.247|  0.483|121.2|
++------+------+------------+------------+-------+-----+
+
+
+🎭 Top 10 Artistas Mais Versáteis:
++--------------------+-----------+----------+----------------+-----------+---------+-----------------+
+|             artists|num_musicas|std_energy|std_danceability|std_valence|std_tempo|versatility_score|
++--------------------+-----------+----------+----------------+-----------+---------+-----------------+
+|    ['Paul Hertzog']|          5|     0.264|           0.297|      0.406|     12.0|            0.322|
+| ['Various Artists']|         12|     0.363|           0.201|      0.352|    26.62|            0.305|
+|    ['Mitch Miller']|         10|     0.286|           0.219|       0.38|    26.78|            0.295|
+|['George Frideric...|          5|     0.166|           0.276|      0.425|    16.74|            0.289|
+|['Throbbing Grist...|          5|     0.216|           0.253|      0.393|    26.42|            0.287|
+|['Adolph Deutsch'...|          9|     0.222|           0.177|      0.421|    35.89|            0.273|
+|       ['Talk Talk']|         27|     0.292|           0.168|      0.334|    24.07|            0.265|
+|  ['Jon & Vangelis']|          7|     0.205|           0.238|      0.353|    26.59|            0.265|
+|['MGM Studio Orch...|          6|     0.144|           0.297|      0.345|    24.64|            0.262|
+|['Sentidos Opuest...|          5|     0.312|           0.161|      0.309|    30.88|            0.261|
++--------------------+-----------+----------+----------------+-----------+---------+-----------------+
+only showing top 10 rows
+
+📊 Correlação com Popularidade:
+   📈 danceability: 0.2211
+   📈 energy: 0.4975
+   📉 acousticness: -0.5933
+   📈 valence: 0.0093
+   📈 tempo: 0.1350
+   📈 loudness: 0.4665
+   📉 speechiness: -0.1357
+   📉 instrumentalness: -0.2998
+
+📅 Popularidade Média por Mês de Lançamento:
++-----+-----------+--------------+
+|month|lancamentos|avg_popularity|
++-----+-----------+--------------+
+|    1|      89137|         24.91|
+|    2|       5194|         41.08|
+|    3|       6850|         40.91|
+|    4|       6213|         42.46|
+|    5|       7105|         42.95|
+|    6|       7885|         40.49|
+|    7|       6123|         38.31|
+|    8|       6418|         41.47|
+|    9|       8128|         41.96|
+|   10|       8575|         41.91|
+|   11|       9216|         39.68|
+|   12|       9065|         21.26|
++-----+-----------+--------------+
+
+✅ Dados salvos em: spotify_processed
+📁 Estrutura de partições:
++--------------------+--------------------+--------------------+-----------+------------+----+------------+------------+------+----------------+--------+--------+-----------+-------+-------+----+---+----------+--------+------------+------+------------+-----+--------------+
+|                  id|                name|             artists|duration_ms|release_date|year|acousticness|danceability|energy|instrumentalness|liveness|loudness|speechiness|  tempo|valence|mode|key|popularity|explicit|duration_min|decade|energy_level| mood|genre_estimate|
++--------------------+--------------------+--------------------+-----------+------------+----+------------+------------+------+----------------+--------+--------+-----------+-------+-------+----+---+----------+--------+------------+------+------------+-----+--------------+
+|4BlOigB3NT7DiwHgi...|Meet Me In The Ci...|['Bruce Springste...|     215213|  2080-10-17|1980|     0.00439|       0.253| 0.956|             0.0|    0.11|  -5.663|      0.128|171.362|   0.78|   1|  9|        33|       0|        3.59|  1980|        High|Happy|      Rock/Pop|
+|5wlLvQGAxVkHCCSaR...|        By Your Side|   ['Con Funk Shun']|     246800|  2080-01-01|1980|        0.18|        0.64| 0.282|         0.00197|  0.0422| -14.134|     0.0294| 82.626|  0.635|   1|  2|        27|       0|        4.11|  1980|         Low|Happy|         Other|
+|69fWyu4n0DZ8Qpwd9...|  Puerto de Illusion|['Los Rebeldes De...|     256240|  1980-01-01|1980|       0.483|       0.664| 0.286|             0.0|   0.218| -14.904|     0.0292|101.289|   0.96|   1|  9|        29|       0|        4.27|  1980|         Low|Happy|         Other|
+|16DzN7oEYy3d5NvUo...|     Devil in My Car|      ["The B-52's"]|     267573|  1980-01-01|1980|     0.00187|       0.502| 0.857|         1.51E-4|   0.109|  -7.063|     0.0304|167.032|  0.636|   1|  7|        29|       0|        4.46|  1980|        High|Happy|      Rock/Pop|
+|2FkJ8X6a1prYSYIda...|Right Start - Unf...|   ['Talking Heads']|     247160|  2080-10-08|1980|       0.132|       0.819| 0.637|           0.571|   0.182|  -8.564|     0.0465| 123.48|  0.978|   1|  2|        34|       0|        4.12|  1980|      Medium|Happy|         Other|
++--------------------+--------------------+--------------------+-----------+------------+----+------------+------------+------+----------------+--------+--------+-----------+-------+-------+----+---+----------+--------+------------+------+------------+-----+--------------+
+only showing top 5 rows
++------+--------------------+--------------------+-----------+--------+--------------------+-------------------+----------------+-----------------+--------+-----------+--------------------+----------------+----------------+--------------------+--------------------+-------------+
+|format|                  id|                name|description|location|           createdAt|       lastModified|partitionColumns|clusteringColumns|numFiles|sizeInBytes|          properties|minReaderVersion|minWriterVersion|       tableFeatures|          statistics|clusterByAuto|
++------+--------------------+--------------------+-----------+--------+--------------------+-------------------+----------------+-----------------+--------+-----------+--------------------+----------------+----------------+--------------------+--------------------+-------------+
+| delta|239dc9dd-3b20-4bc...|workspace.default...|       NULL|        |2026-03-16 21:27:...|2026-03-16 21:27:21|        [decade]|               []|      11|   10475747|{delta.parquet.co...|               3|               7|[appendOnly, dele...|{numRowsDeletedBy...|        false|
++------+--------------------+--------------------+-----------+--------+--------------------+-------------------+----------------+-----------------+--------+-----------+--------------------+----------------+----------------+--------------------+--------------------+-------------+
+
+✅ SparkSession encerrada
