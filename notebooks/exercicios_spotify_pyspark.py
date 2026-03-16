@@ -1,11 +1,11 @@
 # %% [markdown]
 # # 🎧 Exercícios Práticos de PySpark com Dataset do Spotify
-# 
+#
 # Este notebook contém exercícios práticos para aplicar os conceitos de PySpark
 # utilizando o dataset de músicas do Spotify.
-# 
+#
 # **Dataset:** [Spotify Data from PySpark Course](https://www.kaggle.com/datasets/kapturovalexander/spotify-data-from-pyspark-course)
-# 
+#
 # **Instruções:**
 # 1. Baixe o dataset do Kaggle (spotify-data.csv)
 # 2. Coloque o arquivo na pasta `data/` ou ajuste o caminho
@@ -22,75 +22,73 @@
 # Imports necessários
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-
-from pyspark.sql.types import (
-    StructType, StructField,
-    StringType, IntegerType, DoubleType
-)
-
-from pyspark.sql.functions import (
-    col, lit, when, coalesce,
-    count, countDistinct, sum, avg, min, max,
-    year, month, dayofweek,
-    upper, lower, length,
-    row_number, rank, dense_rank, lag, lead,
-    floor, round, desc, asc, try_to_date,)
-
+from pyspark.sql.functions import (asc, avg, coalesce, col, count,
+                                   countDistinct, dayofweek, dense_rank, desc,
+                                   floor, lag, lead, length, lit, lower, max,
+                                   min, month, rank, round, row_number, sum,
+                                   try_to_date, upper, when, year)
+from pyspark.sql.types import (DoubleType, FloatType, IntegerType, StringType,
+                               StructField, StructType)
 from pyspark.sql.window import Window
-from pyspark.sql.types import StringType, IntegerType, FloatType
 
 # %%
 # Criar SparkSession
-spark = SparkSession.builder \
-    .appName("SpotifyAnalysis") \
-    .config("spark.executor.memory", "2g") \
-    .config("spark.driver.memory", "1g") \
-    .config("spark.sql.shuffle.partitions", "8") \
+spark = (
+    SparkSession.builder.appName("SpotifyAnalysis")
+    .config("spark.executor.memory", "2g")
+    .config("spark.driver.memory", "1g")
+    .config("spark.sql.shuffle.partitions", "8")
     .getOrCreate()
+)
 
 print(f"✅ Spark versão: {spark.version}")
 # print(f"📱 App: {spark.sparkContext.appName}")
 
 # %% [markdown]
 # ## 📂 Carregamento dos Dados
-# 
+#
 # Ajuste o caminho do arquivo conforme necessário.
 
 # %%
 # Caminho do arquivo CSV - AJUSTE AQUI
-CAMINHO_ARQUIVO = "/Workspace/Repos/moreira-and@outlook.com/spotify-data/data/spotify-data.csv"
+CAMINHO_ARQUIVO = (
+    "/Workspace/Repos/moreira-and@outlook.com/spotify-data/data/spotify-data.csv"
+)
 
 # Schema do arquivo
-schema = StructType([
-    StructField("id", StringType(), True),
-    StructField("name", StringType(), True),
-    StructField("artists", StringType(), True),
-    StructField("duration_ms", IntegerType(), True),
-    StructField("release_date", StringType(), True),
-    StructField("year", IntegerType(), True),
-    StructField("acousticness", DoubleType(), True),
-    StructField("danceability", DoubleType(), True),
-    StructField("energy", DoubleType(), True),
-    StructField("instrumentalness", DoubleType(), True),
-    StructField("liveness", DoubleType(), True),
-    StructField("loudness", DoubleType(), True),
-    StructField("speechiness", DoubleType(), True),
-    StructField("tempo", DoubleType(), True),
-    StructField("valence", DoubleType(), True),
-    StructField("mode", IntegerType(), True),
-    StructField("key", IntegerType(), True),
-    StructField("popularity", IntegerType(), True),
-    StructField("explicit", IntegerType(), True)
-])
+schema = StructType(
+    [
+        StructField("id", StringType(), True),
+        StructField("name", StringType(), True),
+        StructField("artists", StringType(), True),
+        StructField("duration_ms", IntegerType(), True),
+        StructField("release_date", StringType(), True),
+        StructField("year", IntegerType(), True),
+        StructField("acousticness", DoubleType(), True),
+        StructField("danceability", DoubleType(), True),
+        StructField("energy", DoubleType(), True),
+        StructField("instrumentalness", DoubleType(), True),
+        StructField("liveness", DoubleType(), True),
+        StructField("loudness", DoubleType(), True),
+        StructField("speechiness", DoubleType(), True),
+        StructField("tempo", DoubleType(), True),
+        StructField("valence", DoubleType(), True),
+        StructField("mode", IntegerType(), True),
+        StructField("key", IntegerType(), True),
+        StructField("popularity", IntegerType(), True),
+        StructField("explicit", IntegerType(), True),
+    ]
+)
 
 # Carregar dados
-df = spark.read \
-    .schema(schema) \
-    .option("header", "true") \
-    .option("quote", '"') \
-    .option("escape", '"') \
-    .option("multiLine", "true") \
+df = (
+    spark.read.schema(schema)
+    .option("header", "true")
+    .option("quote", '"')
+    .option("escape", '"')
+    .option("multiLine", "true")
     .csv(CAMINHO_ARQUIVO)
+)
 
 print(f"✅ Dataset carregado com {df.count():,} músicas")
 
@@ -105,7 +103,7 @@ df_formats = df.withColumn(
     .when(col("release_date").rlike(r"^\d{4}-\d{2}$"), "yyyy-MM")
     .when(col("release_date").rlike(r"^\d{4}$"), "yyyy")
     .when(col("release_date").rlike(r"^\d{1,2}/\d{1,2}/\d{2}$"), "M/d/yy")
-    .otherwise("unknown")
+    .otherwise("unknown"),
 )
 
 df_formats.groupBy("date_format").count().show()
@@ -114,12 +112,12 @@ df_formats.groupBy("date_format").count().show()
 df = df.withColumn(
     "release_date",
     coalesce(
-        try_to_date("release_date","yyyy-MM-dd"),
-        try_to_date("release_date","yyyy-MM"),
-        try_to_date("release_date","yyyy"),
-        try_to_date("release_date","M/d/yy"),
-        try_to_date("release_date","MM/dd/yy")
-    )
+        try_to_date("release_date", "yyyy-MM-dd"),
+        try_to_date("release_date", "yyyy-MM"),
+        try_to_date("release_date", "yyyy"),
+        try_to_date("release_date", "M/d/yy"),
+        try_to_date("release_date", "MM/dd/yy"),
+    ),
 )
 
 null_dates = df.filter(col("release_date").isNull()).count()
@@ -142,7 +140,7 @@ df.show(10, truncate=False)
 
 # %% [markdown]
 # ## Exercício 1: Exploração Inicial
-# 
+#
 # **Objetivos:**
 # - Contar registros e colunas
 # - Identificar valores únicos
@@ -166,10 +164,7 @@ print(f"🎤 Artistas únicos: {df.select('artists').distinct().count():,}")
 
 # %%
 # 1.4 Período coberto pelo dataset
-df.select(
-    min("year").alias("Ano_Inicial"),
-    max("year").alias("Ano_Final")
-).show()
+df.select(min("year").alias("Ano_Inicial"), max("year").alias("Ano_Final")).show()
 
 # %%
 # 1.5 Estatísticas descritivas
@@ -177,7 +172,7 @@ df.describe().show()
 
 # %% [markdown]
 # ## Exercício 2: Seleção e Filtragem
-# 
+#
 # **Objetivos:**
 # - Praticar select e filter
 # - Aplicar diferentes tipos de condições
@@ -190,7 +185,9 @@ df.select("name", "artists", "year", "popularity").show(10)
 # 2.2 Músicas muito populares (popularity > 80)
 df_populares = df.filter(col("popularity") > 80)
 print(f"🌟 Músicas com popularity > 80: {df_populares.count():,}")
-df_populares.select("name", "artists", "popularity").orderBy(desc("popularity")).show(10)
+df_populares.select("name", "artists", "popularity").orderBy(desc("popularity")).show(
+    10
+)
 
 # %%
 # 2.3 Músicas recentes (após 2020)
@@ -215,7 +212,7 @@ df_love.select("name", "artists", "year").show(10)
 
 # %% [markdown]
 # ## Exercício 3: Transformações de Colunas
-# 
+#
 # **Objetivos:**
 # - Criar novas colunas calculadas
 # - Usar funções condicionais
@@ -239,7 +236,7 @@ df = df.withColumn(
     "energy_level",
     when(col("energy") < 0.4, "Low")
     .when(col("energy") < 0.7, "Medium")
-    .otherwise("High")
+    .otherwise("High"),
 )
 
 df.groupBy("energy_level").count().orderBy("count").show()
@@ -250,7 +247,7 @@ df = df.withColumn(
     "mood",
     when(col("valence") < 0.3, "Sad")
     .when(col("valence") < 0.6, "Neutral")
-    .otherwise("Happy")
+    .otherwise("Happy"),
 )
 
 df.groupBy("mood").count().orderBy(desc("count")).show()
@@ -261,7 +258,7 @@ df.select("name", "energy", "energy_level", "valence", "mood").show(10)
 
 # %% [markdown]
 # ## Exercício 4: Agregações e Agrupamentos
-# 
+#
 # **Objetivos:**
 # - Calcular métricas por grupo
 # - Usar múltiplas funções de agregação
@@ -269,56 +266,42 @@ df.select("name", "energy", "energy_level", "valence", "mood").show(10)
 
 # %%
 # 4.1 Popularidade média por década
-df.groupBy("decade") \
-    .agg(
-        avg("popularity").alias("avg_popularity"),
-        count("*").alias("num_musicas")
-    ) \
-    .orderBy("decade") \
-    .show()
+df.groupBy("decade").agg(
+    avg("popularity").alias("avg_popularity"), count("*").alias("num_musicas")
+).orderBy("decade").show()
 
 # %%
 # 4.2 Top 10 artistas com mais músicas
-df.groupBy("artists") \
-    .count() \
-    .orderBy(desc("count")) \
-    .show(10)
+df.groupBy("artists").count().orderBy(desc("count")).show(10)
 
 # %%
 # 4.3 Características médias por década
-df.groupBy("decade") \
-    .agg(
-        round(avg("danceability"), 3).alias("avg_danceability"),
-        round(avg("energy"), 3).alias("avg_energy"),
-        round(avg("acousticness"), 3).alias("avg_acousticness"),
-        round(avg("valence"), 3).alias("avg_valence"),
-        round(avg("tempo"), 1).alias("avg_tempo")
-    ) \
-    .orderBy("decade") \
-    .show()
+df.groupBy("decade").agg(
+    round(avg("danceability"), 3).alias("avg_danceability"),
+    round(avg("energy"), 3).alias("avg_energy"),
+    round(avg("acousticness"), 3).alias("avg_acousticness"),
+    round(avg("valence"), 3).alias("avg_valence"),
+    round(avg("tempo"), 1).alias("avg_tempo"),
+).orderBy("decade").show()
 
 # %%
 # 4.4 Década com maior BPM médio
-df.groupBy("decade") \
-    .agg(round(avg("tempo"), 2).alias("avg_tempo")) \
-    .orderBy(desc("avg_tempo")) \
-    .show(1)
+df.groupBy("decade").agg(round(avg("tempo"), 2).alias("avg_tempo")).orderBy(
+    desc("avg_tempo")
+).show(1)
 
 # %%
 # 4.5 Estatísticas de valence por mode (maior/menor)
-df.groupBy("mode") \
-    .agg(
-        count("*").alias("count"),
-        round(avg("valence"), 3).alias("avg_valence"),
-        round(min("valence"), 3).alias("min_valence"),
-        round(max("valence"), 3).alias("max_valence")
-    ) \
-    .withColumn("mode_name", when(col("mode") == 1, "Major").otherwise("Minor")) \
-    .show()
+df.groupBy("mode").agg(
+    count("*").alias("count"),
+    round(avg("valence"), 3).alias("avg_valence"),
+    round(min("valence"), 3).alias("min_valence"),
+    round(max("valence"), 3).alias("max_valence"),
+).withColumn("mode_name", when(col("mode") == 1, "Major").otherwise("Minor")).show()
 
 # %% [markdown]
 # ## Exercício 5: SQL no Spark
-# 
+#
 # **Objetivos:**
 # - Registrar views temporárias
 # - Executar queries SQL
@@ -390,7 +373,7 @@ spark.sql("""
 
 # %% [markdown]
 # ## Exercício 6: Window Functions
-# 
+#
 # **Objetivos:**
 # - Ranking por grupos
 # - Cálculos com linhas vizinhas
@@ -400,70 +383,60 @@ spark.sql("""
 # 6.1 Ranking de músicas por popularidade dentro de cada artista
 window_artist = Window.partitionBy("artists").orderBy(desc("popularity"))
 
-df_ranked = df.withColumn(
-    "rank_by_artist",
-    row_number().over(window_artist)
-)
+df_ranked = df.withColumn("rank_by_artist", row_number().over(window_artist))
 
 # Top 3 músicas de cada artista (artistas com mais músicas)
 top_artists = df.groupBy("artists").count().orderBy(desc("count")).limit(10).collect()
 top_artist_names = [row.artists for row in top_artists]
 
 df_ranked.filter(
-    (col("artists").isin(top_artist_names)) &
-    (col("rank_by_artist") <= 3)
-).select("artists", "name", "popularity", "rank_by_artist") \
-.orderBy("artists", "rank_by_artist") \
-.show(30, truncate=False)
+    (col("artists").isin(top_artist_names)) & (col("rank_by_artist") <= 3)
+).select("artists", "name", "popularity", "rank_by_artist").orderBy(
+    "artists", "rank_by_artist"
+).show(
+    30, truncate=False
+)
 
 # %%
 # 6.2 Música mais popular de cada ano
 window_year = Window.partitionBy("year").orderBy(desc("popularity"))
 
-df_top_year = df.withColumn(
-    "rank_year",
-    row_number().over(window_year)
-).filter(col("rank_year") == 1)
+df_top_year = df.withColumn("rank_year", row_number().over(window_year)).filter(
+    col("rank_year") == 1
+)
 
-df_top_year.select("year", "name", "artists", "popularity") \
-    .orderBy("year") \
-    .show(50)
+df_top_year.select("year", "name", "artists", "popularity").orderBy("year").show(50)
 
 # %%
 # 6.3 Diferença de cada música para a média do artista
 window_avg = Window.partitionBy("artists")
 
 df_diff = df.withColumn(
-    "artist_avg_pop",
-    round(avg("popularity").over(window_avg), 2)
-).withColumn(
-    "diff_from_avg",
-    round(col("popularity") - col("artist_avg_pop"), 2)
-)
+    "artist_avg_pop", round(avg("popularity").over(window_avg), 2)
+).withColumn("diff_from_avg", round(col("popularity") - col("artist_avg_pop"), 2))
 
 # Músicas muito acima da média do artista
-df_diff.filter(col("diff_from_avg") > 30) \
-    .select("name", "artists", "popularity", "artist_avg_pop", "diff_from_avg") \
-    .orderBy(desc("diff_from_avg")) \
-    .show(20)
+df_diff.filter(col("diff_from_avg") > 30).select(
+    "name", "artists", "popularity", "artist_avg_pop", "diff_from_avg"
+).orderBy(desc("diff_from_avg")).show(20)
 
 # %%
 # 6.4 Média móvel de popularidade por ano
 window_rolling = Window.orderBy("year").rowsBetween(-2, 0)
 
-df_year_stats = df.groupBy("year") \
-    .agg(round(avg("popularity"), 2).alias("avg_popularity"))
+df_year_stats = df.groupBy("year").agg(
+    round(avg("popularity"), 2).alias("avg_popularity")
+)
 
 df_year_stats = df_year_stats.withColumn(
-    "rolling_avg_3y",
-    round(avg("avg_popularity").over(window_rolling), 2)
+    "rolling_avg_3y", round(avg("avg_popularity").over(window_rolling), 2)
 )
 
 df_year_stats.orderBy("year").show(50)
 
 # %% [markdown]
 # ## Exercício 7: UDFs (User Defined Functions)
-# 
+#
 # **Objetivos:**
 # - Criar funções customizadas
 # - Classificar músicas por características
@@ -473,15 +446,28 @@ df_year_stats.orderBy("year").show(50)
 from pyspark.sql.functions import udf
 from pyspark.sql.types import StringType
 
+
 # 7.1 UDF para classificar gênero estimado
 @udf(returnType=StringType())
-def classify_genre(danceability, energy, acousticness, instrumentalness, speechiness, loudness):
+def classify_genre(
+    danceability, energy, acousticness, instrumentalness, speechiness, loudness
+):
     """
     Classifica o gênero estimado baseado nas características da música.
     """
-    if any(x is None for x in [danceability, energy, acousticness, instrumentalness, speechiness, loudness]):
+    if any(
+        x is None
+        for x in [
+            danceability,
+            energy,
+            acousticness,
+            instrumentalness,
+            speechiness,
+            loudness,
+        ]
+    ):
         return "Unknown"
-    
+
     if danceability > 0.7 and energy > 0.7:
         return "Dance/Electronic"
     elif acousticness > 0.7 and instrumentalness > 0.5:
@@ -495,6 +481,7 @@ def classify_genre(danceability, energy, acousticness, instrumentalness, speechi
     else:
         return "Other"
 
+
 # %%
 # 7.2 Aplicar UDF
 df_genre = df.withColumn(
@@ -505,30 +492,25 @@ df_genre = df.withColumn(
         col("acousticness"),
         col("instrumentalness"),
         col("speechiness"),
-        col("loudness")
-    )
+        col("loudness"),
+    ),
 )
 
 # %%
 # 7.3 Distribuição de gêneros estimados
-df_genre.groupBy("genre_estimate") \
-    .agg(
-        count("*").alias("count"),
-        round(avg("popularity"), 2).alias("avg_popularity")
-    ) \
-    .orderBy(desc("count")) \
-    .show()
+df_genre.groupBy("genre_estimate").agg(
+    count("*").alias("count"), round(avg("popularity"), 2).alias("avg_popularity")
+).orderBy(desc("count")).show()
 
 # %%
 # 7.4 Distribuição de gêneros por década
-df_genre.groupBy("decade", "genre_estimate") \
-    .count() \
-    .orderBy("decade", desc("count")) \
-    .show(50)
+df_genre.groupBy("decade", "genre_estimate").count().orderBy(
+    "decade", desc("count")
+).show(50)
 
 # %% [markdown]
 # ## Exercício 8: Análise Final - Insights
-# 
+#
 # **Objetivo:** Extrair insights acionáveis dos dados
 
 # %%
@@ -546,22 +528,24 @@ df_top_music.select(
     round(avg("valence"), 3).alias("valence"),
     round(avg("tempo"), 1).alias("tempo"),
     round(avg("loudness"), 2).alias("loudness"),
-    round(avg("speechiness"), 3).alias("speechiness")
+    round(avg("speechiness"), 3).alias("speechiness"),
 ).show()
 
 # %%
 # 8.2 Evolução das características ao longo das décadas
 print("\n📈 Evolução Musical por Década:")
 
-evolucao = df.groupBy("decade") \
+evolucao = (
+    df.groupBy("decade")
     .agg(
         round(avg("energy"), 3).alias("energy"),
         round(avg("danceability"), 3).alias("danceability"),
         round(avg("acousticness"), 3).alias("acousticness"),
         round(avg("valence"), 3).alias("valence"),
-        round(avg("tempo"), 1).alias("tempo")
-    ) \
+        round(avg("tempo"), 1).alias("tempo"),
+    )
     .orderBy("decade")
+)
 
 evolucao.show()
 
@@ -570,25 +554,26 @@ evolucao.show()
 from pyspark.sql.functions import stddev
 
 # Artistas com pelo menos 5 músicas
-artistas_frequentes = df.groupBy("artists") \
-    .count() \
-    .filter(col("count") >= 5) \
-    .select("artists")
+artistas_frequentes = (
+    df.groupBy("artists").count().filter(col("count") >= 5).select("artists")
+)
 
-df_versatil = df.join(artistas_frequentes, "artists") \
-    .groupBy("artists") \
+df_versatil = (
+    df.join(artistas_frequentes, "artists")
+    .groupBy("artists")
     .agg(
         count("*").alias("num_musicas"),
         round(stddev("energy"), 3).alias("std_energy"),
         round(stddev("danceability"), 3).alias("std_danceability"),
         round(stddev("valence"), 3).alias("std_valence"),
-        round(stddev("tempo"), 2).alias("std_tempo")
+        round(stddev("tempo"), 2).alias("std_tempo"),
     )
+)
 
 # Score de versatilidade (média dos desvios padrão normalizados)
 df_versatil = df_versatil.withColumn(
     "versatility_score",
-    round((col("std_energy") + col("std_danceability") + col("std_valence")) / 3, 3)
+    round((col("std_energy") + col("std_danceability") + col("std_valence")) / 3, 3),
 )
 
 print("\n🎭 Top 10 Artistas Mais Versáteis:")
@@ -598,8 +583,16 @@ df_versatil.orderBy(desc("versatility_score")).show(10)
 # 8.4 Correlação entre características e popularidade
 print("\n📊 Correlação com Popularidade:")
 
-caracteristicas = ["danceability", "energy", "acousticness", "valence", 
-                   "tempo", "loudness", "speechiness", "instrumentalness"]
+caracteristicas = [
+    "danceability",
+    "energy",
+    "acousticness",
+    "valence",
+    "tempo",
+    "loudness",
+    "speechiness",
+    "instrumentalness",
+]
 
 for caract in caracteristicas:
     corr = df.stat.corr("popularity", caract)
@@ -611,13 +604,9 @@ for caract in caracteristicas:
 df_dates = df.withColumn("month", month(col("release_date")))
 
 print("\n📅 Popularidade Média por Mês de Lançamento:")
-df_dates.groupBy("month") \
-    .agg(
-        count("*").alias("lancamentos"),
-        round(avg("popularity"), 2).alias("avg_popularity")
-    ) \
-    .orderBy("month") \
-    .show(12)
+df_dates.groupBy("month").agg(
+    count("*").alias("lancamentos"), round(avg("popularity"), 2).alias("avg_popularity")
+).orderBy("month").show(12)
 
 # %% [markdown]
 # ## Exercício 9: Salvar Resultados
@@ -626,17 +615,16 @@ df_dates.groupBy("month") \
 # 9.1 Salvar dados processados em Parquet (particionado por década)
 delta_name = "spotify_processed"
 
-df_genre.write \
-    .format("delta") \
-    .mode("overwrite") \
-    .partitionBy("decade") \
-    .saveAsTable(delta_name)
+df_genre.write.format("delta").mode("overwrite").partitionBy("decade").saveAsTable(
+    delta_name
+)
 
 print(f"✅ Dados salvos em: {delta_name}")
 
 # %%
 # 9.2 Verificar estrutura salva
 import os
+
 print("📁 Estrutura de partições:")
 spark.table(delta_name).show(5)
 
@@ -654,21 +642,21 @@ print("✅ SparkSession encerrada")
 # %% [markdown]
 # ---
 # # 📝 Resumo do Aprendizado
-# 
+#
 # Neste notebook você praticou:
-# 
-# ✅ **Carregamento de dados** CSV no PySpark  
-# ✅ **Exploração** com printSchema, describe, count  
-# ✅ **Seleção e filtragem** com select, filter, where  
-# ✅ **Transformações** com withColumn, when, otherwise  
-# ✅ **Agregações** com groupBy, agg  
-# ✅ **SQL** no Spark com createOrReplaceTempView e spark.sql  
-# ✅ **Window Functions** para rankings e cálculos avançados  
-# ✅ **UDFs** para lógica customizada  
-# ✅ **Salvamento** em formato Parquet particionado  
-# 
+#
+# ✅ **Carregamento de dados** CSV no PySpark
+# ✅ **Exploração** com printSchema, describe, count
+# ✅ **Seleção e filtragem** com select, filter, where
+# ✅ **Transformações** com withColumn, when, otherwise
+# ✅ **Agregações** com groupBy, agg
+# ✅ **SQL** no Spark com createOrReplaceTempView e spark.sql
+# ✅ **Window Functions** para rankings e cálculos avançados
+# ✅ **UDFs** para lógica customizada
+# ✅ **Salvamento** em formato Parquet particionado
+#
 # ---
-# 
+#
 # **Próximos passos sugeridos:**
 # 1. Experimente com diferentes filtros e agregações
 # 2. Crie suas próprias UDFs
