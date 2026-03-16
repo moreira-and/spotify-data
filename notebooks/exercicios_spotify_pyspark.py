@@ -22,14 +22,20 @@
 # Imports necessários
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+
+from pyspark.sql.types import (
+    StructType, StructField,
+    StringType, IntegerType, DoubleType
+)
+
 from pyspark.sql.functions import (
     col, lit, when, coalesce,
     count, countDistinct, sum, avg, min, max,
     year, month, dayofweek,
     upper, lower, length,
     row_number, rank, dense_rank, lag, lead,
-    floor, round, desc, asc
-)
+    floor, round, desc, asc, try_to_date,)
+
 from pyspark.sql.window import Window
 from pyspark.sql.types import StringType, IntegerType, FloatType
 
@@ -43,7 +49,7 @@ spark = SparkSession.builder \
     .getOrCreate()
 
 print(f"✅ Spark versão: {spark.version}")
-print(f"📱 App: {spark.sparkContext.appName}")
+# print(f"📱 App: {spark.sparkContext.appName}")
 
 # %% [markdown]
 # ## 📂 Carregamento dos Dados
@@ -52,19 +58,79 @@ print(f"📱 App: {spark.sparkContext.appName}")
 
 # %%
 # Caminho do arquivo CSV - AJUSTE AQUI
-CAMINHO_ARQUIVO = "data/spotify-data.csv"
+CAMINHO_ARQUIVO = "/Workspace/Repos/moreira-and@outlook.com/spotify-data/data/spotify-data.csv"
+
+# Schema do arquivo
+schema = StructType([
+    StructField("id", StringType(), True),
+    StructField("name", StringType(), True),
+    StructField("artists", StringType(), True),
+    StructField("duration_ms", IntegerType(), True),
+    StructField("release_date", StringType(), True),
+    StructField("year", IntegerType(), True),
+    StructField("acousticness", DoubleType(), True),
+    StructField("danceability", DoubleType(), True),
+    StructField("energy", DoubleType(), True),
+    StructField("instrumentalness", DoubleType(), True),
+    StructField("liveness", DoubleType(), True),
+    StructField("loudness", DoubleType(), True),
+    StructField("speechiness", DoubleType(), True),
+    StructField("tempo", DoubleType(), True),
+    StructField("valence", DoubleType(), True),
+    StructField("mode", IntegerType(), True),
+    StructField("key", IntegerType(), True),
+    StructField("popularity", IntegerType(), True),
+    StructField("explicit", IntegerType(), True)
+])
 
 # Carregar dados
 df = spark.read \
+    .schema(schema) \
     .option("header", "true") \
-    .option("inferSchema", "true") \
+    .option("quote", '"') \
+    .option("escape", '"') \
+    .option("multiLine", "true") \
     .csv(CAMINHO_ARQUIVO)
 
 print(f"✅ Dataset carregado com {df.count():,} músicas")
 
+
+# %%
+# Corrigir release_date
+
+
+df_formats = df.withColumn(
+    "date_format",
+    when(col("release_date").rlike(r"^\d{4}-\d{2}-\d{2}$"), "yyyy-MM-dd")
+    .when(col("release_date").rlike(r"^\d{4}-\d{2}$"), "yyyy-MM")
+    .when(col("release_date").rlike(r"^\d{4}$"), "yyyy")
+    .when(col("release_date").rlike(r"^\d{1,2}/\d{1,2}/\d{2}$"), "M/d/yy")
+    .otherwise("unknown")
+)
+
+df_formats.groupBy("date_format").count().show()
+
+
+df = df.withColumn(
+    "release_date",
+    coalesce(
+        try_to_date("release_date","yyyy-MM-dd"),
+        try_to_date("release_date","yyyy-MM"),
+        try_to_date("release_date","yyyy"),
+        try_to_date("release_date","M/d/yy"),
+        try_to_date("release_date","MM/dd/yy")
+    )
+)
+
+null_dates = df.filter(col("release_date").isNull()).count()
+
+print(f"📅 Datas inválidas após parsing: {null_dates}")
+
+
 # %%
 # Visualizar schema
 df.printSchema()
+
 
 # %%
 # Primeiros registros
@@ -558,20 +624,23 @@ df_dates.groupBy("month") \
 
 # %%
 # 9.1 Salvar dados processados em Parquet (particionado por década)
-output_path = "output/spotify_processed"
+delta_name = "spotify_processed"
 
 df_genre.write \
+    .format("delta") \
     .mode("overwrite") \
     .partitionBy("decade") \
-    .parquet(output_path)
+    .saveAsTable(delta_name)
 
-print(f"✅ Dados salvos em: {output_path}")
+print(f"✅ Dados salvos em: {delta_name}")
 
 # %%
 # 9.2 Verificar estrutura salva
 import os
 print("📁 Estrutura de partições:")
-# spark.read.parquet(output_path).show(5)
+spark.table(delta_name).show(5)
+
+spark.sql(f"DESCRIBE DETAIL {delta_name}").show()
 
 # %% [markdown]
 # ---
@@ -605,7 +674,3 @@ print("✅ SparkSession encerrada")
 # 2. Crie suas próprias UDFs
 # 3. Explore o Spark MLlib para Machine Learning
 # 4. Pratique com datasets maiores
-
-# %% [markdown]
-# ---
-# *Exercícios criados em Janeiro de 2026 para a Apostila de PySpark*
