@@ -3143,4 +3143,4 @@ dashboard_q50.show(truncate=False)
 # ## 🧹 Cleanup
 # %%
 spark.stop()
-print("✅ Prova finalizada! Boa sorte, Juan!")
+print("✅ Prova finalizada! Boa sorte, André!")
