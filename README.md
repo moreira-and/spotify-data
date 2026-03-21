@@ -54,6 +54,18 @@ Ao executar o script no Databricks, ele gera uma **tabela Delta chamada `spotif
 
 Além disso, o script imprime métricas, insights e exemplos de consultas no terminal/notebook.
 
+## Release da prova_50
+
+Para a release da `prova_50`, foi seguido o workflow documentado em `docs/workflows/prova_50_workflow.md`:
+
+1. Geracao inicial da solucao com base em politica e especializacao PySpark.
+2. Revisao estruturada para identificar erros logicos, inconsistencias e riscos de performance.
+3. Refatoracao guiada por plano, com rastreabilidade das mudancas.
+4. Debug com feedback real de execucao no Databricks.
+5. Ajustes e validacao humana final para garantir aderencia ao enunciado.
+
+Esse processo foi aplicado em camadas de validacao (estrutural, logica, runtime e semantica), reduzindo regressao e aumentando confiabilidade da entrega.
+
 ## 🧾 Evidências de execução (Databricks)
 
 A pasta `evidences/` contém capturas de tela do ambiente Databricks usadas para demonstrar o fluxo de trabalho.
