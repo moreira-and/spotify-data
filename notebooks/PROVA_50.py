@@ -50,6 +50,8 @@ spark = (
 
 print(f"✅ Spark versão: {spark.version}")
 
+spark.sql("SHOW VOLUMES").show()
+
 # ## 📂 Carregamento dos Dados
 # Caminho do arquivo CSV
 CAMINHO_ARQUIVO = (
@@ -97,7 +99,6 @@ print(f"✅ Dataset carregado com {df.count():,} músicas")
 # ---
 # # BLOCO 1 — EXPLORAÇÃO E SCHEMA (Q1–Q5)
 # ---
-
 # %% [markdown]
 # ## Q1 — Tipos e Casting (2 pts)
 # Identifique todas as colunas cujo tipo é `string` mas que deveriam ser numéricas.
@@ -850,7 +851,7 @@ artists_clean_q15 = regexp_replace(
 df_q15 = (
     df.withColumn("artist_array", split(artists_clean_q15, r",\s*"))
     .withColumn("num_artists_track", F.size("artist_array"))
-    .withColumn("artist", explode("artist_array"))  
+    .withColumn("artist", explode("artist_array"))
     .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
@@ -981,7 +982,7 @@ artists_clean_q18 = regexp_replace(
 )
 df_artist_level_q18 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q18, r",\s*")))
-    .withColumn("artist", explode("artist_array"))  
+    .withColumn("artist", explode("artist_array"))
     .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
@@ -1251,7 +1252,7 @@ artists_clean_q24 = regexp_replace(
 df_q24 = (
     df.withColumn("decade", (floor(F.col("year") / 10) * 10).cast("int"))
     .withColumn("artist_array", split(artists_clean_q24, r",\s*"))
-    .withColumn("artist", explode("artist_array"))  
+    .withColumn("artist", explode("artist_array"))
     .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
@@ -1914,7 +1915,7 @@ artists_clean_q34 = regexp_replace(
 )
 df_artist_level_q34 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q34, r",\s*")))
-    .withColumn("artist", explode("artist_array"))  
+    .withColumn("artist", explode("artist_array"))
     .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
@@ -2473,6 +2474,11 @@ df_pandas_q41.select(
 
 # %%
 # Interpretacao: self-join com pre-bucket reduz espaco de busca antes dos filtros de similaridade fina.
+from pyspark.sql import functions as F
+from pyspark.sql.functions import abs as spark_abs
+from pyspark.sql.functions import broadcast, floor
+
+# --- base original (mantida) ---
 df_sim_q42 = (
     df.select(
         "id",
@@ -2490,17 +2496,37 @@ df_sim_q42 = (
     .withColumn("tempo_bucket", floor(F.col("tempo") / 5.0))
 )
 
-a_q42 = df_sim_q42.alias("a")
-b_q42 = df_sim_q42.alias("b")
+# --- expansão controlada de vizinhança ---
+offsets = [-1, 0, 1]
 
+df_expanded = (
+    df_sim_q42.select(
+        "*",
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("e_off"),
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("d_off"),
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("v_off"),
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("t_off"),
+    )
+    .withColumn("energy_bucket_n", F.col("energy_bucket") + F.col("e_off"))
+    .withColumn("dance_bucket_n", F.col("dance_bucket") + F.col("d_off"))
+    .withColumn("valence_bucket_n", F.col("valence_bucket") + F.col("v_off"))
+    .withColumn("tempo_bucket_n", F.col("tempo_bucket") + F.col("t_off"))
+    .drop("e_off", "d_off", "v_off", "t_off")
+)
+
+# --- aliases mantidos ---
+a_q42 = df_sim_q42.alias("a")
+b_q42 = broadcast(df_expanded).alias("b")
+
+# --- join corrigido (equi-join) ---
 pairs_q42 = (
     a_q42.join(
         b_q42,
         (
-            (spark_abs(F.col("a.energy_bucket") - F.col("b.energy_bucket")) <= 1)
-            & (spark_abs(F.col("a.dance_bucket") - F.col("b.dance_bucket")) <= 1)
-            & (spark_abs(F.col("a.valence_bucket") - F.col("b.valence_bucket")) <= 1)
-            & (spark_abs(F.col("a.tempo_bucket") - F.col("b.tempo_bucket")) <= 1)
+            (F.col("a.energy_bucket") == F.col("b.energy_bucket_n"))
+            & (F.col("a.dance_bucket") == F.col("b.dance_bucket_n"))
+            & (F.col("a.valence_bucket") == F.col("b.valence_bucket_n"))
+            & (F.col("a.tempo_bucket") == F.col("b.tempo_bucket_n"))
         ),
         "inner",
     )
@@ -2524,6 +2550,7 @@ pairs_q42 = (
     )
 )
 
+# --- resposta ---
 print(f"Quantidade de pares similares: {pairs_q42.count()}")
 pairs_q42.orderBy(F.desc("popularity_diff")).show(10, truncate=False)
 
@@ -2546,7 +2573,7 @@ artists_clean_q43 = regexp_replace(
 )
 df_base_q43 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q43, r",\s*")))
-    .withColumn("artist", explode("artist_array"))  
+    .withColumn("artist", explode("artist_array"))
     .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
@@ -2628,7 +2655,7 @@ artists_clean_q44 = regexp_replace(
 df_artists_q44 = (
     df.select("id", "artists", "popularity")
     .withColumn("artist_array", F.array_distinct(split(artists_clean_q44, r",\s*")))
-    .withColumn("artist", explode("artist_array"))  
+    .withColumn("artist", explode("artist_array"))
     .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
@@ -2672,7 +2699,6 @@ print(
     "Leitura tecnica: diferencas positivas indicam que o dataset sem mainstream tem media maior naquele atributo."
 )
 
-
 # %% [markdown]
 # ## Q45 — Otimização: Repartition e Coalesce (2 pts)
 # Verifique o número atual de partições do DataFrame.
@@ -2685,6 +2711,8 @@ print(
 # %%
 # Interpretacao: repartition por year melhora locality para operacoes por ano; coalesce reduz arquivos pequenos na escrita.
 # AGENT: ajuste de debug - compatibilidade Databricks com fallback de path e inspecao via Spark/Hadoop FS.
+
+# --- base ---
 df_q45 = df.withColumn("decade", (floor(F.col("year") / 10) * 10).cast("int"))
 
 
@@ -2692,12 +2720,12 @@ def get_num_partitions_q45(input_df):
     try:
         return input_df.rdd.getNumPartitions()
     except Exception:
-        # Spark Connect pode não expor DataFrame.rdd; usar spark_partition_id é compatível.
         return input_df.select(F.spark_partition_id().alias("pid")).distinct().count()
 
 
 print(f"Particoes iniciais: {get_num_partitions_q45(df_q45)}")
 
+# --- repartition ---
 df_repartitioned_q45 = df_q45.repartition("year")
 print(
     f"Particoes apos repartition(year): {get_num_partitions_q45(df_repartitioned_q45)}"
@@ -2705,43 +2733,30 @@ print(
 print("Plano apos repartition(year):")
 df_repartitioned_q45.explain()
 
+# --- coalesce ---
 df_coalesced_q45 = df_repartitioned_q45.coalesce(2)
 print(f"Particoes apos coalesce(2): {get_num_partitions_q45(df_coalesced_q45)}")
 
-output_path_q45 = "data/tmp/prova_50_q45_parquet"
-try:
-    if spark.conf.get("spark.databricks.clusterUsageTags.clusterId"):
-        output_path_q45 = "dbfs:/tmp/prova_50_q45_parquet"
-except Exception:
-    pass
+# --- escrita como tabela (DELTA obrigatório) ---
+table_name_q45 = "spotify_prova_50"
 
 (
     df_coalesced_q45.write.mode("overwrite")
+    .format("delta")  # 🔥 obrigatório em UC
     .partitionBy("decade")
-    .parquet(output_path_q45)
+    .saveAsTable(table_name_q45)
 )
-print(f"Parquet salvo em: {output_path_q45}")
 
+print(f"Tabela salva: {table_name_q45}")
+
+# --- verificação ---
 print("Particoes logicas gravadas (distinct decade):")
-spark.read.parquet(output_path_q45).select("decade").distinct().orderBy("decade").show(
+spark.read.table(table_name_q45).select("decade").distinct().orderBy("decade").show(
     200, truncate=False
 )
 
-try:
-    if "dbutils" in globals():
-        partition_dirs_q45 = sorted(
-            [
-                item.path.split("/")[-2]
-                for item in dbutils.fs.ls(output_path_q45)
-                if item.path.endswith("/") and "decade=" in item.path
-            ]
-        )
-        print(f"Total de pastas de particao detectadas: {len(partition_dirs_q45)}")
-        print("Exemplos de pastas:", partition_dirs_q45[:15])
-    else:
-        print("dbutils indisponivel; mantendo validacao por distinct(decade).")
-except Exception:
-    print("Nao foi possivel listar diretorios fisicos neste ambiente.")
+print("Particoes fisicas registradas no metastore:")
+spark.sql(f"SHOW PARTITIONS {table_name_q45}").show(truncate=False)
 
 
 # %% [markdown]
@@ -2949,10 +2964,13 @@ result_q48 = (
     .orderBy("year")
 )
 
-residual_row_q48 = cast(
-    Any, result_q48.agg(stddev("residuo").alias("residual_std")).first() or {}
+residual_row_q48 = result_q48.agg(stddev("residuo").alias("residual_std")).first()
+residual_std_q48 = (
+    residual_row_q48.residual_std
+    if residual_row_q48 and residual_row_q48.residual_std is not None
+    else 0.0
 )
-residual_std_q48 = residual_row_q48.get("residual_std") or 0.0
+
 anomalias_q48 = result_q48.filter(
     spark_abs(F.col("residuo")) > (F.lit(2.0) * F.lit(residual_std_q48))
 )
@@ -3056,7 +3074,7 @@ artists_clean_q50 = regexp_replace(
 )
 df_artists_q50 = (
     df.withColumn("artist_array", split(artists_clean_q50, r",\s*"))
-    .withColumn("artist", explode("artist_array"))  
+    .withColumn("artist", explode("artist_array"))
     .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
