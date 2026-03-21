@@ -228,14 +228,32 @@ corr_cols_q4 = [
     "tempo",
 ]
 
+corr_pair_exprs_q4 = []
+for i, c1 in enumerate(corr_cols_q4):
+    for c2 in corr_cols_q4[i + 1 :]:
+        corr_pair_exprs_q4.append(corr(c1, c2).alias(f"{c1}__{c2}"))
+
+corr_values_q4 = df.select(*corr_cols_q4).agg(*corr_pair_exprs_q4).first().asDict()
+
 corr_entries_q4 = []
 top_pairs_q4 = []
+for c1 in corr_cols_q4:
+    for c2 in corr_cols_q4:
+        if c1 == c2:
+            corr_val = 1.0
+        else:
+            key_forward = f"{c1}__{c2}"
+            key_reverse = f"{c2}__{c1}"
+            corr_val = corr_values_q4.get(key_forward, corr_values_q4.get(key_reverse))
+            corr_val = float(corr_val) if corr_val is not None else None
+        corr_entries_q4.append((c1, c2, corr_val))
+
 for i, c1 in enumerate(corr_cols_q4):
-    for j, c2 in enumerate(corr_cols_q4):
-        corr_val = 1.0 if c1 == c2 else df.stat.corr(c1, c2)
-        corr_entries_q4.append((c1, c2, float(corr_val)))
-        if j > i:
-            top_pairs_q4.append((c1, c2, float(corr_val), abs(float(corr_val))))
+    for c2 in corr_cols_q4[i + 1 :]:
+        pair_val = corr_values_q4.get(f"{c1}__{c2}", corr_values_q4.get(f"{c2}__{c1}"))
+        pair_val = float(pair_val) if pair_val is not None else None
+        if pair_val is not None:
+            top_pairs_q4.append((c1, c2, pair_val, abs(pair_val)))
 
 matrix_q4 = (
     spark.createDataFrame(corr_entries_q4, ["var_1", "var_2", "correlation"])
@@ -275,7 +293,7 @@ numeric_types_q5 = {
     "decimal",
 }
 
-quality_rows_q5 = []
+agg_exprs_q5 = []
 for field in df.schema.fields:
     col_name = field.name
     dtype = field.dataType.simpleString()
@@ -285,45 +303,60 @@ for field in df.schema.fields:
     if dtype == "string":
         null_condition = null_condition | (F.trim(F.col(col_name)) == "")
 
-    agg_row = df.agg(
-        F.sum(F.when(null_condition, 1).otherwise(0)).alias("null_count"),
-        countDistinct(F.col(col_name)).alias("distinct_count"),
-        F.min(F.col(col_name)).alias("min_value"),
-        F.max(F.col(col_name)).alias("max_value"),
-        avg(F.col(col_name)).alias("mean_value"),
-        stddev(F.col(col_name)).alias("std_value"),
-        skewness(F.col(col_name)).alias("skewness_value"),
-    ).first()
+    agg_exprs_q5.append(
+        F.sum(F.when(null_condition, 1).otherwise(0)).alias(f"{col_name}__null_count")
+    )
+    agg_exprs_q5.append(
+        countDistinct(F.col(col_name)).alias(f"{col_name}__distinct_count")
+    )
+
+    if is_numeric:
+        agg_exprs_q5.append(F.min(F.col(col_name)).alias(f"{col_name}__min"))
+        agg_exprs_q5.append(F.max(F.col(col_name)).alias(f"{col_name}__max"))
+        agg_exprs_q5.append(avg(F.col(col_name)).alias(f"{col_name}__mean"))
+        agg_exprs_q5.append(stddev(F.col(col_name)).alias(f"{col_name}__stddev"))
+        agg_exprs_q5.append(skewness(F.col(col_name)).alias(f"{col_name}__skewness"))
+
+stats_q5 = df.agg(*agg_exprs_q5).first().asDict()
+
+quality_rows_q5 = []
+for field in df.schema.fields:
+    col_name = field.name
+    dtype = field.dataType.simpleString()
+    is_numeric = any(dtype.startswith(t) for t in numeric_types_q5)
 
     quality_rows_q5.append(
         (
             col_name,
             dtype,
-            round((agg_row["null_count"] / total_rows_q5) * 100, 4),
-            int(agg_row["distinct_count"]),
+            round(
+                ((stats_q5.get(f"{col_name}__null_count") or 0) / total_rows_q5) * 100,
+                4,
+            ),
+            int(stats_q5.get(f"{col_name}__distinct_count") or 0),
             (
-                float(agg_row["min_value"])
-                if is_numeric and agg_row["min_value"] is not None
+                float(stats_q5.get(f"{col_name}__min"))
+                if is_numeric and stats_q5.get(f"{col_name}__min") is not None
                 else None
             ),
             (
-                float(agg_row["max_value"])
-                if is_numeric and agg_row["max_value"] is not None
+                float(stats_q5.get(f"{col_name}__max"))
+                if is_numeric and stats_q5.get(f"{col_name}__max") is not None
                 else None
             ),
             (
-                float(agg_row["mean_value"])
-                if is_numeric and agg_row["mean_value"] is not None
+                float(stats_q5.get(f"{col_name}__mean"))
+                if is_numeric and stats_q5.get(f"{col_name}__mean") is not None
                 else None
             ),
             (
-                float(agg_row["std_value"])
-                if is_numeric and agg_row["std_value"] is not None
+                float(stats_q5.get(f"{col_name}__stddev"))
+                if is_numeric and stats_q5.get(f"{col_name}__stddev") is not None
                 else None
             ),
             (
-                float(agg_row["skewness_value"])
-                if is_numeric and agg_row["skewness_value"] is not None
+                float(stats_q5.get(f"{col_name}__skewness"))
+                if is_numeric and stats_q5.get(f"{col_name}__skewness") is not None
                 else None
             ),
         )
@@ -362,15 +395,26 @@ result_q5.show(len(quality_rows_q5), truncate=False)
 # %%
 # Interpretacao: filtrar musicas acima da media do proprio artista e acima da mediana global de energy.
 median_energy_q6 = df.approxQuantile("energy", [0.5], 0.001)[0]
-window_artist_q6 = Window.partitionBy("artists")
+artists_clean_q6 = regexp_replace(
+    regexp_replace(F.col("artists"), r"^\[|\]$", ""), r"'", ""
+)
+df_artist_level_q6 = (
+    df.withColumn("artist_array", F.array_distinct(split(artists_clean_q6, r",\s*")))
+    .withColumn("artist", trim(explode("artist_array")))
+    .filter(F.col("artist") != "")
+)
+
+window_artist_q6 = Window.partitionBy("artist")
 
 result_q6 = (
-    df.withColumn("artist_avg_pop", avg("popularity").over(window_artist_q6))
+    df_artist_level_q6.withColumn(
+        "artist_avg_pop", avg("popularity").over(window_artist_q6)
+    )
     .filter(
         (F.col("popularity") > F.col("artist_avg_pop"))
         & (F.col("energy") > F.lit(median_energy_q6))
     )
-    .select("name", "artists", "popularity", "artist_avg_pop", "energy")
+    .select("name", F.col("artist").alias("artists"), "popularity", "artist_avg_pop")
     .orderBy(F.desc("popularity"), F.desc("artist_avg_pop"))
 )
 
@@ -420,22 +464,35 @@ df_q7.select(
 
 # %%
 # Interpretacao: usar left_anti garante semantica exata de "nenhuma musica acima de 60".
+artists_clean_q8 = regexp_replace(
+    regexp_replace(F.col("artists"), r"^\[|\]$", ""), r"'", ""
+)
+df_artist_level_q8 = (
+    df.withColumn("artist_array", F.array_distinct(split(artists_clean_q8, r",\s*")))
+    .withColumn("artist", trim(explode("artist_array")))
+    .filter(F.col("artist") != "")
+)
+
 artist_base_q8 = (
-    df.groupBy("artists")
+    df_artist_level_q8.groupBy("artist")
     .agg(
-        count("*").alias("total_songs"),
+        countDistinct("id").alias("total_songs"),
         round(avg("popularity"), 2).alias("avg_popularity"),
     )
     .filter(F.col("total_songs") >= 5)
 )
 
-artists_with_hits_q8 = df.filter(F.col("popularity") > 60).select("artists").distinct()
-
-result_q8 = artist_base_q8.join(artists_with_hits_q8, "artists", "left_anti").orderBy(
-    F.desc("total_songs"), F.asc("artists")
+artists_with_hits_q8 = (
+    df_artist_level_q8.filter(F.col("popularity") > 60).select("artist").distinct()
 )
 
-result_q8.show(50, truncate=False)
+result_q8 = artist_base_q8.join(artists_with_hits_q8, "artist", "left_anti").orderBy(
+    F.desc("total_songs"), F.asc("artist")
+)
+
+result_q8.select(
+    F.col("artist").alias("artists"), "total_songs", "avg_popularity"
+).show(50, truncate=False)
 
 
 # %% [markdown]
@@ -811,12 +868,21 @@ def one_hot_key_q17(key_value):
     return vec
 
 
-df_q17 = df.withColumn("key_ohe", one_hot_key_q17(F.col("key"))).withColumn(
-    "ohe_sum", F.expr("aggregate(key_ohe, 0, (acc, x) -> acc + x)")
+df_q17 = (
+    df.withColumn("key_ohe", one_hot_key_q17(F.col("key")))
+    .withColumn("ohe_sum", F.expr("aggregate(key_ohe, 0, (acc, x) -> acc + x)"))
+    .withColumn("is_valid_key", F.col("key").between(0, 11))
 )
 
-print("Validacao da soma do array one-hot (esperado: sempre 1 quando key valida):")
-df_q17.groupBy("ohe_sum").count().orderBy("ohe_sum").show()
+print("Validacao da soma do array one-hot por status de dominio da key:")
+df_q17.groupBy("is_valid_key", "ohe_sum").count().orderBy(
+    "is_valid_key", "ohe_sum"
+).show()
+
+invalid_rows_q17 = df_q17.filter(~F.col("is_valid_key")).count()
+invalid_sum_q17 = df_q17.filter(F.col("is_valid_key") & (F.col("ohe_sum") != 1)).count()
+print(f"Registros com key fora de [0,11]: {invalid_rows_q17}")
+print(f"Registros validos com soma != 1 (esperado 0): {invalid_sum_q17}")
 
 for i in range(12):
     df_q17 = df_q17.withColumn(f"key_{i}", F.col("key_ohe")[i])
@@ -836,10 +902,19 @@ df_q17.select("key", "key_ohe", "ohe_sum", *[f"key_{i}" for i in range(12)]).sho
 
 # %%
 # Interpretacao: z-score por artista destaca faixas muito acima/abaixo do padrao individual.
-window_artist_q18 = Window.partitionBy("artists")
+artists_clean_q18 = regexp_replace(
+    regexp_replace(F.col("artists"), r"^\[|\]$", ""), r"'", ""
+)
+df_artist_level_q18 = (
+    df.withColumn("artist_array", F.array_distinct(split(artists_clean_q18, r",\s*")))
+    .withColumn("artist", trim(explode("artist_array")))
+    .filter(F.col("artist") != "")
+)
+
+window_artist_q18 = Window.partitionBy("artist")
 
 df_q18 = (
-    df.withColumn("artist_count", count("*").over(window_artist_q18))
+    df_artist_level_q18.withColumn("artist_count", count("*").over(window_artist_q18))
     .withColumn("artist_avg", avg("popularity").over(window_artist_q18))
     .withColumn("artist_std", stddev("popularity").over(window_artist_q18))
     .filter(
@@ -853,7 +928,12 @@ df_q18 = (
 )
 
 df_q18.select(
-    "name", "artists", "popularity", "artist_avg", "artist_std", "z_score"
+    "name",
+    F.col("artist").alias("artists"),
+    "popularity",
+    "artist_avg",
+    "artist_std",
+    "z_score",
 ).orderBy(F.desc(spark_abs(F.col("z_score")))).show(10, truncate=False)
 
 
@@ -941,17 +1021,20 @@ print(
 # %%
 # Interpretacao: row_number limita exatamente 3 por decada; dense_rank pode retornar mais em caso de empate.
 df_q21 = df.withColumn("decade", (floor(F.col("year") / 10) * 10).cast("int"))
-window_q21 = Window.partitionBy("decade").orderBy(F.desc("popularity"), F.asc("name"))
+window_row_q21 = Window.partitionBy("decade").orderBy(
+    F.desc("popularity"), F.asc("name")
+)
+window_dense_q21 = Window.partitionBy("decade").orderBy(F.desc("popularity"))
 
 top3_row_number_q21 = (
-    df_q21.withColumn("ranking", row_number().over(window_q21))
+    df_q21.withColumn("ranking", row_number().over(window_row_q21))
     .filter(F.col("ranking") <= 3)
     .select("id", "decade", "ranking", "name", "artists", "popularity")
     .orderBy("decade", "ranking", F.desc("popularity"))
 )
 
 top3_dense_rank_q21 = (
-    df_q21.withColumn("ranking", dense_rank().over(window_q21))
+    df_q21.withColumn("ranking", dense_rank().over(window_dense_q21))
     .filter(F.col("ranking") <= 3)
     .select("id", "decade", "ranking", "name", "artists", "popularity")
     .orderBy("decade", "ranking", F.desc("popularity"))
@@ -1179,21 +1262,35 @@ result_q25.orderBy(F.desc("diferenca")).show(10, truncate=False)
 df.createOrReplaceTempView("spotify")
 
 result_q26 = spark.sql("""
-    WITH global_stats AS (
-        SELECT percentile_approx(popularity, 0.5, 10000) AS median_popularity
+    WITH normalized AS (
+        SELECT
+            id,
+            popularity,
+            TRIM(artist) AS artist
         FROM spotify
+        LATERAL VIEW EXPLODE(
+            SPLIT(
+                REGEXP_REPLACE(REGEXP_REPLACE(artists, '^\\[|\\]$', ''), "'", ''),
+                ',\\s*'
+            )
+        ) exploded AS artist
+        WHERE TRIM(artist) <> ''
+    ),
+    global_stats AS (
+        SELECT percentile_approx(popularity, 0.5, 10000) AS median_popularity
+        FROM normalized
     ),
     artist_agg AS (
         SELECT
-            artists,
+            artist,
             AVG(popularity) AS avg_popularity,
             COUNT(*) AS tracks_total,
             SUM(CASE WHEN popularity > 70 THEN 1 ELSE 0 END) AS hits_above_70
-        FROM spotify
-        GROUP BY artists
+        FROM normalized
+        GROUP BY artist
     )
     SELECT
-        a.artists,
+        a.artist AS artists,
         ROUND(a.avg_popularity, 4) AS avg_popularity,
         a.tracks_total,
         a.hits_above_70
@@ -1201,10 +1298,10 @@ result_q26 = spark.sql("""
     WHERE a.avg_popularity > (SELECT median_popularity FROM global_stats)
       AND EXISTS (
             SELECT 1
-            FROM spotify s
-            WHERE s.artists = a.artists
+            FROM normalized s
+            WHERE s.artist = a.artist
               AND s.popularity > 70
-            GROUP BY s.artists
+            GROUP BY s.artist
             HAVING COUNT(*) >= 3
       )
     ORDER BY avg_popularity DESC, tracks_total DESC
@@ -1361,17 +1458,32 @@ result_q28.show(200, truncate=False)
 df.createOrReplaceTempView("spotify")
 
 result_q29 = spark.sql("""
-    WITH artist_flags AS (
+    WITH normalized AS (
         SELECT
-            artists,
-            COUNT(*) AS total_tracks,
+            id,
+            name,
+            popularity,
+            TRIM(artist) AS artist
+        FROM spotify
+        LATERAL VIEW EXPLODE(
+            SPLIT(
+                REGEXP_REPLACE(REGEXP_REPLACE(artists, '^\\[|\\]$', ''), "'", ''),
+                ',\\s*'
+            )
+        ) exploded AS artist
+        WHERE TRIM(artist) <> ''
+    ),
+    artist_flags AS (
+        SELECT
+            artist,
+            COUNT(DISTINCT id) AS total_tracks,
             SUM(CASE WHEN popularity > 70 THEN 1 ELSE 0 END) AS high_hits,
             SUM(CASE WHEN popularity BETWEEN 30 AND 70 THEN 1 ELSE 0 END) AS mid_tracks
-        FROM spotify
-        GROUP BY artists
+        FROM normalized
+        GROUP BY artist
     ),
     eligible AS (
-        SELECT artists
+        SELECT artist
         FROM artist_flags
         WHERE total_tracks >= 3
           AND high_hits = 1
@@ -1379,30 +1491,30 @@ result_q29 = spark.sql("""
     ),
     hit_track AS (
         SELECT
-            s.artists,
+            s.artist,
             s.name AS hit_name,
             s.popularity AS hit_popularity
-        FROM spotify s
-        INNER JOIN eligible e ON s.artists = e.artists
+        FROM normalized s
+        INNER JOIN eligible e ON s.artist = e.artist
         WHERE s.popularity > 70
     ),
     other_avg AS (
         SELECT
-            s.artists,
+            s.artist,
             AVG(s.popularity) AS avg_other_popularity
-        FROM spotify s
-        INNER JOIN eligible e ON s.artists = e.artists
+        FROM normalized s
+        INNER JOIN eligible e ON s.artist = e.artist
         WHERE s.popularity < 30
-        GROUP BY s.artists
+        GROUP BY s.artist
     )
     SELECT
-        h.artists,
+        h.artist AS artists,
         h.hit_name,
         h.hit_popularity,
         ROUND(o.avg_other_popularity, 4) AS avg_other_popularity
     FROM hit_track h
     INNER JOIN other_avg o
-        ON h.artists = o.artists
+        ON h.artist = o.artist
     ORDER BY h.hit_popularity DESC, o.avg_other_popularity DESC
     """)
 
@@ -1418,7 +1530,7 @@ result_q29.show(200, truncate=False)
 # Use LAG e SUM com Window Functions em SQL.
 
 # %%
-# Interpretacao: variacao percentual por decada via LAG e acumulado via SUM em janela ordenada.
+# Interpretacao: variacao percentual por decada via LAG e acumulado desde baseline usando SUM das deltas.
 df.createOrReplaceTempView("spotify")
 
 result_q30 = spark.sql("""
@@ -1445,13 +1557,17 @@ result_q30 = spark.sql("""
             LAG(avg_valence) OVER (ORDER BY decade) AS prev_valence
         FROM decade_stats
     ),
-    pct_changes AS (
+    deltas AS (
         SELECT
             decade,
             avg_energy,
             avg_danceability,
             avg_acousticness,
             avg_valence,
+            (avg_energy - prev_energy) AS delta_energy,
+            (avg_danceability - prev_danceability) AS delta_danceability,
+            (avg_acousticness - prev_acousticness) AS delta_acousticness,
+            (avg_valence - prev_valence) AS delta_valence,
             CASE WHEN prev_energy IS NULL OR prev_energy = 0 THEN NULL
                  ELSE ((avg_energy - prev_energy) / prev_energy) * 100 END AS energy_pct_change,
             CASE WHEN prev_danceability IS NULL OR prev_danceability = 0 THEN NULL
@@ -1461,6 +1577,51 @@ result_q30 = spark.sql("""
             CASE WHEN prev_valence IS NULL OR prev_valence = 0 THEN NULL
                  ELSE ((avg_valence - prev_valence) / prev_valence) * 100 END AS valence_pct_change
         FROM lagged
+    ),
+    cumulative AS (
+        SELECT
+            decade,
+            avg_energy,
+            avg_danceability,
+            avg_acousticness,
+            avg_valence,
+            energy_pct_change,
+            danceability_pct_change,
+            acousticness_pct_change,
+            valence_pct_change,
+            SUM(COALESCE(delta_energy, 0.0)) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) AS energy_delta_cumulative,
+            SUM(COALESCE(delta_danceability, 0.0)) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) AS danceability_delta_cumulative,
+            SUM(COALESCE(delta_acousticness, 0.0)) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) AS acousticness_delta_cumulative,
+            SUM(COALESCE(delta_valence, 0.0)) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) AS valence_delta_cumulative,
+            FIRST_VALUE(avg_energy) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+            ) AS base_energy,
+            FIRST_VALUE(avg_danceability) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+            ) AS base_danceability,
+            FIRST_VALUE(avg_acousticness) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+            ) AS base_acousticness,
+            FIRST_VALUE(avg_valence) OVER (
+                ORDER BY decade
+                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+            ) AS base_valence
+        FROM deltas
     )
     SELECT
         decade,
@@ -1473,34 +1634,26 @@ result_q30 = spark.sql("""
         ROUND(acousticness_pct_change, 6) AS acousticness_pct_change,
         ROUND(valence_pct_change, 6) AS valence_pct_change,
         ROUND(
-            SUM(COALESCE(energy_pct_change, 0.0)) OVER (
-                ORDER BY decade
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ),
+            CASE WHEN base_energy IS NULL OR base_energy = 0 THEN NULL
+                 ELSE (energy_delta_cumulative / base_energy) * 100 END,
             6
         ) AS energy_pct_cumulative,
         ROUND(
-            SUM(COALESCE(danceability_pct_change, 0.0)) OVER (
-                ORDER BY decade
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ),
+            CASE WHEN base_danceability IS NULL OR base_danceability = 0 THEN NULL
+                 ELSE (danceability_delta_cumulative / base_danceability) * 100 END,
             6
         ) AS danceability_pct_cumulative,
         ROUND(
-            SUM(COALESCE(acousticness_pct_change, 0.0)) OVER (
-                ORDER BY decade
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ),
+            CASE WHEN base_acousticness IS NULL OR base_acousticness = 0 THEN NULL
+                 ELSE (acousticness_delta_cumulative / base_acousticness) * 100 END,
             6
         ) AS acousticness_pct_cumulative,
         ROUND(
-            SUM(COALESCE(valence_pct_change, 0.0)) OVER (
-                ORDER BY decade
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ),
+            CASE WHEN base_valence IS NULL OR base_valence = 0 THEN NULL
+                 ELSE (valence_delta_cumulative / base_valence) * 100 END,
             6
         ) AS valence_pct_cumulative
-    FROM pct_changes
+    FROM cumulative
     ORDER BY decade
     """)
 
@@ -1672,19 +1825,28 @@ gaps_q33.show(200, truncate=False)
 
 # %%
 # Interpretacao: combinar lag/lead com janela local captura momentum e consistencia temporal por artista.
+artists_clean_q34 = regexp_replace(
+    regexp_replace(F.col("artists"), r"^\[|\]$", ""), r"'", ""
+)
+df_artist_level_q34 = (
+    df.withColumn("artist_array", F.array_distinct(split(artists_clean_q34, r",\s*")))
+    .withColumn("artist", trim(explode("artist_array")))
+    .filter(F.col("artist") != "")
+)
+
 artists_min5_q34 = (
-    df.groupBy("artists")
-    .agg(count("*").alias("artist_tracks"))
+    df_artist_level_q34.groupBy("artist")
+    .agg(countDistinct("id").alias("artist_tracks"))
     .filter(F.col("artist_tracks") >= 5)
 )
 
-window_artist_order_q34 = Window.partitionBy("artists").orderBy(
-    F.asc("year"), F.desc("popularity"), F.asc("name")
+window_artist_order_q34 = Window.partitionBy("artist").orderBy(
+    F.asc("year"), F.asc("name"), F.asc("id")
 )
 window_artist_3rows_q34 = window_artist_order_q34.rowsBetween(-1, 1)
 
 df_q34 = (
-    df.join(artists_min5_q34.select("artists"), "artists", "inner")
+    df_artist_level_q34.join(artists_min5_q34.select("artist"), "artist", "inner")
     .withColumn("prev_pop", lag("popularity").over(window_artist_order_q34))
     .withColumn("next_pop", lead("popularity").over(window_artist_order_q34))
     .withColumn("momentum", F.col("next_pop") - F.col("prev_pop"))
@@ -1692,7 +1854,7 @@ df_q34 = (
 )
 
 artist_momentum_q34 = (
-    df_q34.groupBy("artists")
+    df_q34.groupBy("artist")
     .agg(
         round(avg("momentum"), 6).alias("avg_momentum"),
         round(avg("consistency"), 6).alias("avg_consistency"),
@@ -1701,7 +1863,12 @@ artist_momentum_q34 = (
     .orderBy(F.desc("avg_momentum"), F.desc("tracks_considered"))
 )
 
-artist_momentum_q34.show(5, truncate=False)
+artist_momentum_q34.select(
+    F.col("artist").alias("artists"),
+    "avg_momentum",
+    "avg_consistency",
+    "tracks_considered",
+).show(5, truncate=False)
 
 
 # %% [markdown]
@@ -2164,28 +2331,41 @@ row_udfs_q41 = {
     for c in cols_q41
 }
 
-start_pandas_q41 = time.perf_counter()
 df_pandas_q41 = df
 for c in cols_q41:
     df_pandas_q41 = df_pandas_q41.withColumn(
         f"{c}_z_pandas", pandas_udfs_q41[c](F.col(c))
     )
-df_pandas_q41.select(
-    avg("popularity_z_pandas"), avg("energy_z_pandas"), avg("danceability_z_pandas")
-).collect()
-time_pandas_q41 = time.perf_counter() - start_pandas_q41
-
-start_row_q41 = time.perf_counter()
 df_row_q41 = df
 for c in cols_q41:
     df_row_q41 = df_row_q41.withColumn(f"{c}_z_row_udf", row_udfs_q41[c](F.col(c)))
-df_row_q41.select(
-    avg("popularity_z_row_udf"), avg("energy_z_row_udf"), avg("danceability_z_row_udf")
-).collect()
-time_row_q41 = time.perf_counter() - start_row_q41
 
-print(f"Tempo Pandas UDF (s): {time_pandas_q41:.4f}")
-print(f"Tempo UDF tradicional (s): {time_row_q41:.4f}")
+
+def benchmark_q41(df_input, metric_cols, runs=4, warmup=1):
+    timings = []
+    for i in range(runs):
+        start = time.perf_counter()
+        df_input.select(*[avg(c).alias(c) for c in metric_cols]).first()
+        elapsed = time.perf_counter() - start
+        if i >= warmup:
+            timings.append(elapsed)
+    return timings
+
+
+pandas_timing_runs_q41 = benchmark_q41(
+    df_pandas_q41, [f"{c}_z_pandas" for c in cols_q41], runs=4, warmup=1
+)
+row_timing_runs_q41 = benchmark_q41(
+    df_row_q41, [f"{c}_z_row_udf" for c in cols_q41], runs=4, warmup=1
+)
+
+pandas_median_q41 = sorted(pandas_timing_runs_q41)[len(pandas_timing_runs_q41) // 2]
+row_median_q41 = sorted(row_timing_runs_q41)[len(row_timing_runs_q41) // 2]
+
+print(f"Tempos Pandas UDF (s): {pandas_timing_runs_q41}")
+print(f"Tempos UDF tradicional (s): {row_timing_runs_q41}")
+print(f"Mediana Pandas UDF (s): {pandas_median_q41:.4f}")
+print(f"Mediana UDF tradicional (s): {row_median_q41:.4f}")
 print("Amostra de saida z-score (Pandas UDF):")
 df_pandas_q41.select(
     "name", "popularity_z_pandas", "energy_z_pandas", "danceability_z_pandas"
@@ -2277,9 +2457,18 @@ pairs_q42.orderBy(F.desc("popularity_diff")).show(10, truncate=False)
 
 # %%
 # Interpretacao: enriquecer linha-a-linha com estatisticas agregadas melhora analise relativa de desempenho.
-df_artist_stats_q43 = df.groupBy("artists").agg(
+artists_clean_q43 = regexp_replace(
+    regexp_replace(F.col("artists"), r"^\[|\]$", ""), r"'", ""
+)
+df_base_q43 = (
+    df.withColumn("artist_array", F.array_distinct(split(artists_clean_q43, r",\s*")))
+    .withColumn("artist", trim(explode("artist_array")))
+    .filter(F.col("artist") != "")
+)
+
+df_artist_stats_q43 = df_base_q43.groupBy("artist").agg(
     round(avg("popularity"), 6).alias("artist_avg_pop"),
-    count("*").alias("artist_track_count"),
+    countDistinct("id").alias("artist_track_count"),
     round(stddev("popularity"), 6).alias("artist_std_pop"),
 )
 
@@ -2294,16 +2483,39 @@ df_key_mode_q43 = df.groupBy("key", "mode").agg(
     round(avg("danceability"), 6).alias("key_mode_avg_dance"),
 )
 
+artist_stats_small_q43 = df_artist_stats_q43.count() <= 10000
+year_stats_small_q43 = df_year_stats_q43.count() <= 500
+key_mode_small_q43 = df_key_mode_q43.count() <= 1000
+
+artist_stats_join_q43 = (
+    broadcast(df_artist_stats_q43) if artist_stats_small_q43 else df_artist_stats_q43
+)
+year_stats_join_q43 = (
+    broadcast(df_year_stats_q43) if year_stats_small_q43 else df_year_stats_q43
+)
+key_mode_join_q43 = (
+    broadcast(df_key_mode_q43) if key_mode_small_q43 else df_key_mode_q43
+)
+
+print(
+    "Broadcast utilizado - artist_stats:",
+    artist_stats_small_q43,
+    "| year_stats:",
+    year_stats_small_q43,
+    "| key_mode:",
+    key_mode_small_q43,
+)
+
 df_enriched_q43 = (
-    df.join(broadcast(df_artist_stats_q43), "artists", "left")
-    .join(broadcast(df_year_stats_q43), "year", "left")
-    .join(broadcast(df_key_mode_q43), ["key", "mode"], "left")
+    df_base_q43.join(artist_stats_join_q43, "artist", "left")
+    .join(year_stats_join_q43, "year", "left")
+    .join(key_mode_join_q43, ["key", "mode"], "left")
     .withColumn("relative_pop", F.col("popularity") - F.col("artist_avg_pop"))
 )
 
 df_enriched_q43.select(
     "name",
-    "artists",
+    F.col("artist").alias("artists"),
     "year",
     "popularity",
     "artist_avg_pop",
@@ -2324,15 +2536,36 @@ df_enriched_q43.select(
 
 # %%
 # Interpretacao: left_anti remove mainstream explicitamente e permite comparar assinatura media do restante.
-blacklist_q44 = (
-    df.groupBy("artists")
-    .agg(round(avg("popularity"), 6).alias("artist_avg_pop"))
-    .orderBy(F.desc("artist_avg_pop"))
-    .limit(50)
-    .select("artists")
+artists_clean_q44 = regexp_replace(
+    regexp_replace(F.col("artists"), r"^\[|\]$", ""), r"'", ""
+)
+df_artists_q44 = (
+    df.select("id", "artists", "popularity")
+    .withColumn("artist_array", F.array_distinct(split(artists_clean_q44, r",\s*")))
+    .withColumn("artist", trim(explode("artist_array")))
+    .filter(F.col("artist") != "")
 )
 
-df_without_mainstream_q44 = df.join(blacklist_q44, "artists", "left_anti")
+blacklist_q44 = (
+    df_artists_q44.groupBy("artist")
+    .agg(round(avg("popularity"), 6).alias("artist_avg_pop"))
+    .join(
+        df_artists_q44.groupBy("artist").agg(
+            countDistinct("id").alias("artist_tracks")
+        ),
+        "artist",
+        "inner",
+    )
+    .filter(F.col("artist_tracks") >= 5)
+    .orderBy(F.desc("artist_avg_pop"))
+    .limit(50)
+    .select("artist")
+)
+
+blacklisted_track_ids_q44 = (
+    df_artists_q44.join(blacklist_q44, "artist", "inner").select("id").distinct()
+)
+df_without_mainstream_q44 = df.join(blacklisted_track_ids_q44, "id", "left_anti")
 
 metrics_q44 = ["energy", "danceability", "valence", "acousticness"]
 full_metrics_q44 = df.agg(*[avg(c).alias(f"{c}_full") for c in metrics_q44])
@@ -2364,8 +2597,6 @@ print(
 
 # %%
 # Interpretacao: repartition por year melhora locality para operacoes por ano; coalesce reduz arquivos pequenos na escrita.
-import os
-
 df_q45 = df.withColumn("decade", (floor(F.col("year") / 10) * 10).cast("int"))
 print(f"Particoes iniciais: {df_q45.rdd.getNumPartitions()}")
 
@@ -2380,6 +2611,12 @@ df_coalesced_q45 = df_repartitioned_q45.coalesce(2)
 print(f"Particoes apos coalesce(2): {df_coalesced_q45.rdd.getNumPartitions()}")
 
 output_path_q45 = "data/tmp/prova_50_q45_parquet"
+try:
+    if spark.conf.get("spark.databricks.clusterUsageTags.clusterId"):
+        output_path_q45 = "dbfs:/tmp/prova_50_q45_parquet"
+except Exception:
+    pass
+
 (
     df_coalesced_q45.write.mode("overwrite")
     .partitionBy("decade")
@@ -2387,16 +2624,29 @@ output_path_q45 = "data/tmp/prova_50_q45_parquet"
 )
 print(f"Parquet salvo em: {output_path_q45}")
 
-if os.path.exists(output_path_q45):
-    partition_dirs_q45 = sorted(
-        [d for d in os.listdir(output_path_q45) if d.startswith("decade=")]
-    )
-    print(f"Total de particoes fisicas por decade: {len(partition_dirs_q45)}")
-    print("Exemplos de pastas criadas:", partition_dirs_q45[:15])
-else:
-    print(
-        "Caminho nao visivel no filesystem local; valide as pastas no storage do ambiente Spark."
-    )
+print("Particoes logicas gravadas (distinct decade):")
+spark.read.parquet(output_path_q45).select("decade").distinct().orderBy("decade").show(
+    200, truncate=False
+)
+
+try:
+    jvm_q45 = spark._jvm
+    hconf_q45 = spark._jsc.hadoopConfiguration()
+    path_q45 = jvm_q45.org.apache.hadoop.fs.Path(output_path_q45)
+    fs_q45 = path_q45.getFileSystem(hconf_q45)
+    if fs_q45.exists(path_q45):
+        status_q45 = fs_q45.listStatus(path_q45)
+        partition_dirs_q45 = sorted(
+            [
+                s.getPath().getName()
+                for s in status_q45
+                if s.isDirectory() and s.getPath().getName().startswith("decade=")
+            ]
+        )
+        print(f"Total de pastas de particao detectadas: {len(partition_dirs_q45)}")
+        print("Exemplos de pastas:", partition_dirs_q45[:15])
+except Exception:
+    print("Nao foi possivel listar diretorios fisicos via Hadoop FS neste ambiente.")
 
 
 # %% [markdown]
@@ -2486,16 +2736,21 @@ def assign_cluster_q47(input_df, centroids):
             ),
         )
 
-    df_cluster = df_cluster.withColumn(
-        "min_dist", least(*[F.col(c) for c in distance_cols])
-    ).withColumn(
-        "cluster",
-        when(F.col("min_dist") == F.col("dist_C1"), lit("C1"))
-        .when(F.col("min_dist") == F.col("dist_C2"), lit("C2"))
-        .when(F.col("min_dist") == F.col("dist_C3"), lit("C3"))
-        .otherwise(lit("C4")),
+    distance_rank_col = F.array_sort(
+        F.array(
+            F.struct(F.col("dist_C1").alias("distance"), lit("C1").alias("cluster_id")),
+            F.struct(F.col("dist_C2").alias("distance"), lit("C2").alias("cluster_id")),
+            F.struct(F.col("dist_C3").alias("distance"), lit("C3").alias("cluster_id")),
+            F.struct(F.col("dist_C4").alias("distance"), lit("C4").alias("cluster_id")),
+        )
     )
-    return df_cluster
+
+    df_cluster = (
+        df_cluster.withColumn("distance_rank", distance_rank_col)
+        .withColumn("min_dist", F.col("distance_rank")[0].getField("distance"))
+        .withColumn("cluster", F.col("distance_rank")[0].getField("cluster_id"))
+    )
+    return df_cluster.drop("distance_rank")
 
 
 df_features_q47 = df.select(
@@ -2510,7 +2765,7 @@ centroids_iter1_rows_q47 = (
         avg("danceability").alias("centroid_danceability"),
         avg("valence").alias("centroid_valence"),
     )
-    .collect()
+    .toLocalIterator()
 )
 
 updated_centroids_q47 = dict(initial_centroids_q47)
@@ -2717,7 +2972,7 @@ summary_q50.show(truncate=False)
 top5_artists_q50 = (
     df_artists_q50.groupBy("artist")
     .agg(
-        count("*").alias("tracks"),
+        countDistinct("id").alias("tracks"),
         round(avg("popularity"), 6).alias("avg_popularity"),
     )
     .filter(F.col("tracks") >= 10)
@@ -2727,6 +2982,13 @@ top5_artists_q50 = (
 
 print("2) Top 5 artistas por popularidade media (min 10 musicas):")
 top5_artists_q50.show(truncate=False)
+
+top5_ranked_q50 = top5_artists_q50.withColumn(
+    "rank",
+    row_number().over(
+        Window.orderBy(F.desc("avg_popularity"), F.desc("tracks"), F.asc("artist"))
+    ),
+)
 
 # 3) Decada de ouro: maior diversidade (artistas distintos / musica)
 diversity_q50 = (
@@ -2817,13 +3079,16 @@ dashboard_q50 = (
         ).alias("valor"),
     )
     .unionByName(
-        top5_artists_q50.agg(
+        top5_ranked_q50.agg(
             F.to_json(
-                collect_list(
-                    F.struct(
-                        F.col("artist"),
-                        F.col("tracks"),
-                        F.round(F.col("avg_popularity"), 4).alias("avg_popularity"),
+                F.sort_array(
+                    collect_list(
+                        F.struct(
+                            F.col("rank"),
+                            F.col("artist"),
+                            F.col("tracks"),
+                            F.round(F.col("avg_popularity"), 4).alias("avg_popularity"),
+                        )
                     )
                 )
             ).alias("valor")
