@@ -38,161 +38,65 @@ from pyspark.sql.types import (ArrayType, BooleanType, DoubleType, FloatType,
                                StructType)
 from pyspark.sql.window import Window
 
-try:
-    from dotenv import load_dotenv
-except Exception:
-    load_dotenv = None
-
-if load_dotenv is not None:
-    load_dotenv(dotenv_path=Path(".env"), override=False)
-    load_dotenv(dotenv_path=Path(".databricks/.databricks.env"), override=False)
-
-has_databricks_auth = bool(os.getenv("DATABRICKS_HOST")) and bool(
-    os.getenv("DATABRICKS_TOKEN") or os.getenv("DATABRICKS_CONFIG_PROFILE")
+# %%
+# Criar SparkSession
+spark = (
+    SparkSession.builder.appName("SpotifyAnalysis")
+    .config("spark.executor.memory", "2g")
+    .config("spark.driver.memory", "1g")
+    .config("spark.sql.shuffle.partitions", "8")
+    .getOrCreate()
 )
 
+print(f"✅ Spark versão: {spark.version}")
 
-def is_usercontext_error(exc: Exception) -> bool:
-    return "Missing required field 'UserContext'" in str(exc)
-
-
-is_databricks_bootstrap_run = bool(os.getenv("DATABRICKS_SOURCE_FILE")) or (
-    "dbutils" in globals()
-)
-
-
-bootstrap_spark = globals().get("spark")
-spark = None
-if bootstrap_spark is not None:
-    try:
-        # Validar sessão do bootstrap; pode existir mas estar sem UserContext.
-        bootstrap_spark.range(1).count()
-        spark = bootstrap_spark
-    except Exception as bootstrap_error:
-        if not is_usercontext_error(bootstrap_error):
-            spark = bootstrap_spark
-
-if spark is None and has_databricks_auth:
-    try:
-        from databricks.connect import DatabricksSession
-
-        spark = DatabricksSession.builder.getOrCreate()
-        # Sessão Spark Connect pode existir sem UserContext válido; validar com ação mínima.
-        spark.range(1).count()
-    except Exception:
-        spark = None
-
-if spark is None:
-    if is_databricks_bootstrap_run:
-        raise RuntimeError(
-            "Conexao Databricks invalida (UserContext ausente). "
-            "Corrija autenticacao/cluster do Databricks Connect antes de executar o script via dbconnect-bootstrap."
-        )
-    # Garante fallback local mesmo quando processo foi iniciado via dbconnect-bootstrap.
-    os.environ["SPARK_API_MODE"] = "classic"
-    os.environ.pop("SPARK_CONNECT_MODE_ENABLED", None)
-    os.environ.pop("SPARK_REMOTE", None)
-    os.environ.pop("SPARK_LOCAL_REMOTE", None)
-    try:
-        spark = (
-            SparkSession.builder.appName("SpotifyAnalysis")
-            .master("local[*]")
-            .config("spark.executor.memory", "2g")
-            .config("spark.driver.memory", "1g")
-            .config("spark.sql.shuffle.partitions", "8")
-            .getOrCreate()
-        )
-    except Exception as local_spark_error:
-        raise RuntimeError(
-            "Falha ao iniciar Spark local. Verifique instalacao do Java (JAVA_HOME) "
-            "ou execute sem dbconnect-bootstrap quando quiser modo local."
-        ) from local_spark_error
-
-
-spark = cast(Any, spark)
-
+# ## 📂 Carregamento dos Dados
+# Caminho do arquivo CSV
 CAMINHO_ARQUIVO = (
     "/Workspace/Repos/moreira-and@outlook.com/spotify-data/data/spotify-data.csv"
 )
 
-local_data_file = Path(__file__).resolve().parents[1] / "data" / "spotify-data.csv"
-cwd_data_file = Path.cwd() / "data" / "spotify-data.csv"
-
-candidate_paths = list(
-    dict.fromkeys(
-        [
-            str(local_data_file),
-            str(cwd_data_file),
-            r"C:\Repositories\spotify-data\data\spotify-data.csv",
-            "data/spotify-data.csv",
-            CAMINHO_ARQUIVO,
-            "dbfs:/FileStore/tables/spotify-data.csv",
-            "dbfs:/tmp/spotify-data.csv",
-        ]
-    )
+# Schema do arquivo
+schema = StructType(
+    [
+        StructField("id", StringType(), True),
+        StructField("name", StringType(), True),
+        StructField("artists", StringType(), True),
+        StructField("duration_ms", IntegerType(), True),
+        StructField("release_date", StringType(), True),
+        StructField("year", IntegerType(), True),
+        StructField("acousticness", DoubleType(), True),
+        StructField("danceability", DoubleType(), True),
+        StructField("energy", DoubleType(), True),
+        StructField("instrumentalness", DoubleType(), True),
+        StructField("liveness", DoubleType(), True),
+        StructField("loudness", DoubleType(), True),
+        StructField("speechiness", DoubleType(), True),
+        StructField("tempo", DoubleType(), True),
+        StructField("valence", DoubleType(), True),
+        StructField("mode", IntegerType(), True),
+        StructField("key", IntegerType(), True),
+        StructField("popularity", IntegerType(), True),
+        StructField("explicit", IntegerType(), True),
+    ]
 )
 
-df = None
-last_read_error = None
-for path_candidate in candidate_paths:
-    try:
-        df_candidate = (
-            spark.read.option("header", "true")
-            .option("inferSchema", "true")
-            .csv(path_candidate)
-        )
-        df_candidate.limit(1).count()
-        CAMINHO_ARQUIVO = path_candidate
-        df = df_candidate
-        break
-    except Exception as read_error:
-        # Se Spark Connect estiver inválido (sem UserContext), trocar para Spark local e seguir.
-        if is_usercontext_error(read_error):
-            if is_databricks_bootstrap_run:
-                raise RuntimeError(
-                    "Conexao Databricks invalida (UserContext ausente) durante leitura do dataset. "
-                    "Ajuste autenticacao/cluster do Databricks Connect."
-                ) from read_error
-            try:
-                os.environ["SPARK_API_MODE"] = "classic"
-                os.environ.pop("SPARK_CONNECT_MODE_ENABLED", None)
-                os.environ.pop("SPARK_REMOTE", None)
-                os.environ.pop("SPARK_LOCAL_REMOTE", None)
-                spark = (
-                    SparkSession.builder.appName("SpotifyAnalysis")
-                    .master("local[*]")
-                    .config("spark.executor.memory", "2g")
-                    .config("spark.driver.memory", "1g")
-                    .config("spark.sql.shuffle.partitions", "8")
-                    .getOrCreate()
-                )
-                df_candidate = (
-                    spark.read.option("header", "true")
-                    .option("inferSchema", "true")
-                    .csv(path_candidate)
-                )
-                df_candidate.limit(1).count()
-                CAMINHO_ARQUIVO = path_candidate
-                df = df_candidate
-                break
-            except Exception as local_read_error:
-                last_read_error = local_read_error
-                continue
-        last_read_error = read_error
+# Carregar dados
+df = (
+    spark.read.schema(schema)
+    .option("header", "true")
+    .option("quote", '"')
+    .option("escape", '"')
+    .option("multiLine", "true")
+    .csv(CAMINHO_ARQUIVO)
+)
 
-if df is None:
-    raise RuntimeError(
-        f"Nao foi possivel carregar o dataset em nenhum caminho candidato: {candidate_paths}"
-    ) from last_read_error
-df = cast(Any, df)
-
-print(f"✅ Dataset carregado: {df.count()} registros, {len(df.columns)} colunas")
+print(f"✅ Dataset carregado com {df.count():,} músicas")
 
 # %% [markdown]
 # ---
 # # BLOCO 1 — EXPLORAÇÃO E SCHEMA (Q1–Q5)
 # ---
-
 # %% [markdown]
 # ## Q1 — Tipos e Casting (2 pts)
 # Identifique todas as colunas cujo tipo é `string` mas que deveriam ser numéricas.
@@ -559,7 +463,8 @@ artists_clean_q6 = regexp_replace(
 )
 df_artist_level_q6 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q6, r",\s*")))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -629,7 +534,8 @@ artists_clean_q8 = regexp_replace(
 )
 df_artist_level_q8 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q8, r",\s*")))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -943,7 +849,8 @@ artists_clean_q15 = regexp_replace(
 df_q15 = (
     df.withColumn("artist_array", split(artists_clean_q15, r",\s*"))
     .withColumn("num_artists_track", F.size("artist_array"))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -1073,7 +980,8 @@ artists_clean_q18 = regexp_replace(
 )
 df_artist_level_q18 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q18, r",\s*")))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -1342,7 +1250,8 @@ artists_clean_q24 = regexp_replace(
 df_q24 = (
     df.withColumn("decade", (floor(F.col("year") / 10) * 10).cast("int"))
     .withColumn("artist_array", split(artists_clean_q24, r",\s*"))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -2004,7 +1913,8 @@ artists_clean_q34 = regexp_replace(
 )
 df_artist_level_q34 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q34, r",\s*")))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -2562,6 +2472,11 @@ df_pandas_q41.select(
 
 # %%
 # Interpretacao: self-join com pre-bucket reduz espaco de busca antes dos filtros de similaridade fina.
+from pyspark.sql import functions as F
+from pyspark.sql.functions import abs as spark_abs
+from pyspark.sql.functions import broadcast, floor
+
+# --- base original (mantida) ---
 df_sim_q42 = (
     df.select(
         "id",
@@ -2579,17 +2494,37 @@ df_sim_q42 = (
     .withColumn("tempo_bucket", floor(F.col("tempo") / 5.0))
 )
 
-a_q42 = df_sim_q42.alias("a")
-b_q42 = df_sim_q42.alias("b")
+# --- expansão controlada de vizinhança ---
+offsets = [-1, 0, 1]
 
+df_expanded = (
+    df_sim_q42.select(
+        "*",
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("e_off"),
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("d_off"),
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("v_off"),
+        F.explode(F.array(*[F.lit(x) for x in offsets])).alias("t_off"),
+    )
+    .withColumn("energy_bucket_n", F.col("energy_bucket") + F.col("e_off"))
+    .withColumn("dance_bucket_n", F.col("dance_bucket") + F.col("d_off"))
+    .withColumn("valence_bucket_n", F.col("valence_bucket") + F.col("v_off"))
+    .withColumn("tempo_bucket_n", F.col("tempo_bucket") + F.col("t_off"))
+    .drop("e_off", "d_off", "v_off", "t_off")
+)
+
+# --- aliases mantidos ---
+a_q42 = df_sim_q42.alias("a")
+b_q42 = broadcast(df_expanded).alias("b")
+
+# --- join corrigido (equi-join) ---
 pairs_q42 = (
     a_q42.join(
         b_q42,
         (
-            (spark_abs(F.col("a.energy_bucket") - F.col("b.energy_bucket")) <= 1)
-            & (spark_abs(F.col("a.dance_bucket") - F.col("b.dance_bucket")) <= 1)
-            & (spark_abs(F.col("a.valence_bucket") - F.col("b.valence_bucket")) <= 1)
-            & (spark_abs(F.col("a.tempo_bucket") - F.col("b.tempo_bucket")) <= 1)
+            (F.col("a.energy_bucket") == F.col("b.energy_bucket_n"))
+            & (F.col("a.dance_bucket") == F.col("b.dance_bucket_n"))
+            & (F.col("a.valence_bucket") == F.col("b.valence_bucket_n"))
+            & (F.col("a.tempo_bucket") == F.col("b.tempo_bucket_n"))
         ),
         "inner",
     )
@@ -2613,6 +2548,7 @@ pairs_q42 = (
     )
 )
 
+# --- resposta ---
 print(f"Quantidade de pares similares: {pairs_q42.count()}")
 pairs_q42.orderBy(F.desc("popularity_diff")).show(10, truncate=False)
 
@@ -2635,7 +2571,8 @@ artists_clean_q43 = regexp_replace(
 )
 df_base_q43 = (
     df.withColumn("artist_array", F.array_distinct(split(artists_clean_q43, r",\s*")))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -2716,7 +2653,8 @@ artists_clean_q44 = regexp_replace(
 df_artists_q44 = (
     df.select("id", "artists", "popularity")
     .withColumn("artist_array", F.array_distinct(split(artists_clean_q44, r",\s*")))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
@@ -2759,7 +2697,6 @@ print(
     "Leitura tecnica: diferencas positivas indicam que o dataset sem mainstream tem media maior naquele atributo."
 )
 
-
 # %% [markdown]
 # ## Q45 — Otimização: Repartition e Coalesce (2 pts)
 # Verifique o número atual de partições do DataFrame.
@@ -2795,18 +2732,15 @@ df_repartitioned_q45.explain()
 df_coalesced_q45 = df_repartitioned_q45.coalesce(2)
 print(f"Particoes apos coalesce(2): {get_num_partitions_q45(df_coalesced_q45)}")
 
-output_path_q45 = "data/tmp/prova_50_q45_parquet"
-try:
-    if spark.conf.get("spark.databricks.clusterUsageTags.clusterId"):
-        output_path_q45 = "dbfs:/tmp/prova_50_q45_parquet"
-except Exception:
-    pass
+output_path_q45 = "dbfs:/tmp/prova_50_q45_parquet"
 
 (
-    df_coalesced_q45.write.mode("overwrite")
+    df_q45.repartition("decade")
+    .write.mode("overwrite")
     .partitionBy("decade")
     .parquet(output_path_q45)
 )
+
 print(f"Parquet salvo em: {output_path_q45}")
 
 print("Particoes logicas gravadas (distinct decade):")
@@ -3036,10 +2970,13 @@ result_q48 = (
     .orderBy("year")
 )
 
-residual_row_q48 = cast(
-    Any, result_q48.agg(stddev("residuo").alias("residual_std")).first() or {}
+residual_row_q48 = result_q48.agg(stddev("residuo").alias("residual_std")).first()
+residual_std_q48 = (
+    residual_row_q48.residual_std
+    if residual_row_q48 and residual_row_q48.residual_std is not None
+    else 0.0
 )
-residual_std_q48 = residual_row_q48.get("residual_std") or 0.0
+
 anomalias_q48 = result_q48.filter(
     spark_abs(F.col("residuo")) > (F.lit(2.0) * F.lit(residual_std_q48))
 )
@@ -3143,7 +3080,8 @@ artists_clean_q50 = regexp_replace(
 )
 df_artists_q50 = (
     df.withColumn("artist_array", split(artists_clean_q50, r",\s*"))
-    .withColumn("artist", trim(explode("artist_array")))
+    .withColumn("artist", explode("artist_array"))
+    .withColumn("artist", trim(F.col("artist")))
     .filter(F.col("artist") != "")
 )
 
